@@ -41,7 +41,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-2xl">🚇</span>
           <span className="font-mono text-xs font-bold tracking-wider text-amber-400 uppercase bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
-            Edisi Edukasi Sekolah
+            Developed By Misbahul Munir
           </span>
         </div>
 
@@ -60,7 +60,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             className="px-4 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-bold text-blue-300 hover:text-white border border-blue-500/30 flex items-center gap-2 transition-all cursor-pointer"
           >
             <span>👨‍🏫</span>
-            <span>Masuk Guru</span>
+            <span>Portal Guru</span>
           </button>
         </div>
       </header>
@@ -100,7 +100,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 letterSpacing: '-2px',
               }}
             >
-              ANIMAL SURFERS
+              SUBWAY EDU
             </text>
             <text
               x="50%"
@@ -117,15 +117,15 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 letterSpacing: '5px',
               }}
             >
-              KUIS GOOGLE SPREADSHEET
+              FUN GAME EDUKATIF
             </text>
           </svg>
         </div>
 
         {/* Subtitle / Pitch */}
         <p className="text-slate-300 text-sm sm:text-base max-w-xl mx-auto mb-6 leading-relaxed">
-          Game lari 3D seru dengan <span className="text-amber-300 font-bold">11 karakter hewan</span>,
-          lompat & meluncur di rel kereta, raih bonus soal kuis buatan guru, dan bagikan skormu ke WhatsApp!
+          Game 3D seru dengan <span className="text-amber-300 font-bold">11 karakter hewan</span>,
+          lompat & meluncur di rel kereta, raih poin dan soal kuis buatan guru, dan bagikan skormu ke WhatsApp!
         </p>
 
         {/* Animals Emoji Parade Preview */}
@@ -158,7 +158,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             className="w-full sm:w-auto px-6 py-4 bg-slate-800/90 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-sm sm:text-base rounded-2xl border border-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2"
           >
             <span>📝</span>
-            <span>Guru: Kelola Soal & Token</span>
+            <span>Portal Guru</span>
           </button>
         </div>
       </main>
