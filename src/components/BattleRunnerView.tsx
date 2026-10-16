@@ -49,8 +49,17 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
   const [p2Dead, setP2Dead] = useState(false);
   const [p2ActiveQuestion, setP2ActiveQuestion] = useState<Question | null>(null);
 
+  const [isFacingFront, setIsFacingFront] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
+
+  const handleToggleView = () => {
+    if (engine1Ref.current && engine2Ref.current) {
+      const next = engine1Ref.current.toggleFacingDirection();
+      engine2Ref.current.toggleFacingDirection();
+      setIsFacingFront(next);
+    }
+  };
 
   const p1AnimalObj = ANIMALS.find((a) => a.id === player1Animal)!;
   const p2AnimalObj = ANIMALS.find((a) => a.id === player2Animal)!;
@@ -191,6 +200,11 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
           e.preventDefault();
           engine2Ref.current?.slide();
         }
+      }
+
+      if (e.code === 'KeyV') {
+        e.preventDefault();
+        handleToggleView();
       }
     };
 
@@ -357,6 +371,8 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
           onMoveRight={() => engine1Ref.current?.moveRight()}
           onJump={() => engine1Ref.current?.jump()}
           onSlide={() => engine1Ref.current?.slide()}
+          isFacingFront={isFacingFront}
+          onToggleView={handleToggleView}
           isBattle={true}
           playerSide="left"
         />
@@ -405,6 +421,8 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
           onMoveRight={() => engine2Ref.current?.moveRight()}
           onJump={() => engine2Ref.current?.jump()}
           onSlide={() => engine2Ref.current?.slide()}
+          isFacingFront={isFacingFront}
+          onToggleView={handleToggleView}
           isBattle={true}
           playerSide="right"
         />

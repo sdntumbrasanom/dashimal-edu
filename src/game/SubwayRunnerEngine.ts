@@ -27,6 +27,7 @@ export interface EngineConfig {
   initialLives: number;
   maxLives: number;
   questions: Question[];
+  facingFront?: boolean;
   callbacks: RunnerCallbacks;
 }
 
@@ -63,6 +64,7 @@ export class SubwayRunnerEngine {
   private config: EngineConfig;
 
   private animalModel: AnimatedAnimalGroup;
+  private facingFront = false; // Default false: faces forward down the track (-Z) in direction of run
   private currentLane = 1; // 0 = Left (-2.5), 1 = Center (0), 2 = Right (2.5)
   private playerX = 0;
   private playerY = 0;
@@ -101,6 +103,7 @@ export class SubwayRunnerEngine {
     this.config = config;
     this.lives = config.initialLives;
     this.maxLives = config.maxLives;
+    this.facingFront = config.facingFront !== undefined ? config.facingFront : true;
 
     // Renderer
     const isHeadless =
@@ -132,8 +135,8 @@ export class SubwayRunnerEngine {
       0.1,
       140
     );
-    this.camera.position.set(0, 4.4, 6.2);
-    this.camera.lookAt(0, 1.2, -10);
+    this.camera.position.set(0, 3.8, 5.6);
+    this.camera.lookAt(0, 1.3, -12);
 
     // Lighting
     const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x1e293b, 1.0);
@@ -146,9 +149,10 @@ export class SubwayRunnerEngine {
     // Track & Ground
     this.initTrackChunks();
 
-    // Animal Character
+    // Animal Character - oriented facing forward towards front/screen (+Z) as requested
     this.animalModel = buildAnimalModel(config.animalId);
     this.animalModel.position.set(0, 0, 0);
+    this.animalModel.rotation.y = this.facingFront ? 0 : Math.PI;
     this.scene.add(this.animalModel);
 
     // Particles
@@ -168,7 +172,27 @@ export class SubwayRunnerEngine {
     this.config.animalId = animalId;
     this.animalModel = buildAnimalModel(animalId);
     this.animalModel.position.set(this.playerX, this.playerY, 0);
+    this.animalModel.rotation.y = this.facingFront ? 0 : Math.PI;
     this.scene.add(this.animalModel);
+  }
+
+  public toggleFacingDirection(): boolean {
+    this.facingFront = !this.facingFront;
+    if (this.animalModel) {
+      this.animalModel.rotation.y = this.facingFront ? 0 : Math.PI;
+    }
+    return this.facingFront;
+  }
+
+  public isFacingFront(): boolean {
+    return this.facingFront;
+  }
+
+  public setFacingFront(facing: boolean) {
+    this.facingFront = facing;
+    if (this.animalModel) {
+      this.animalModel.rotation.y = this.facingFront ? 0 : Math.PI;
+    }
   }
 
   public start() {
@@ -637,10 +661,12 @@ export class SubwayRunnerEngine {
       });
     }
 
-    // Lane tilt
+    // Lane tilt and face forward (facing front/screen if facingFront is true)
     const laneDeltaX = targetX - this.playerX;
-    this.animalModel.rotation.z = -laneDeltaX * 0.15;
-    this.animalModel.rotation.y = laneDeltaX * 0.2;
+    const baseRotY = this.facingFront ? 0 : Math.PI;
+    const rotSign = this.facingFront ? 1 : -1;
+    this.animalModel.rotation.y = baseRotY + laneDeltaX * 0.22 * rotSign;
+    this.animalModel.rotation.z = laneDeltaX * 0.12 * rotSign;
 
     // Shift Track Chunks
     const chunkLength = 40;

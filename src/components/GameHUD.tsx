@@ -16,6 +16,8 @@ interface GameHUDProps {
   onMoveRight: () => void;
   onJump: () => void;
   onSlide: () => void;
+  onToggleView?: () => void;
+  isFacingFront?: boolean;
   isBattle?: boolean;
   playerSide?: 'left' | 'right';
 }
@@ -35,6 +37,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onMoveRight,
   onJump,
   onSlide,
+  onToggleView,
+  isFacingFront = true,
   isBattle = false,
   playerSide = 'left',
 }) => {
@@ -93,9 +97,23 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </div>
           </div>
 
-          {/* Utility Buttons: Mute & Pause (Only show on left/main or solo) */}
+          {/* Utility Buttons: View Toggle, Mute & Pause */}
           {(!isBattle || playerSide === 'left') && (
             <div className="flex items-center gap-1.5 pointer-events-auto">
+              {onToggleView && (
+                <button
+                  onClick={onToggleView}
+                  className="h-9 px-2.5 rounded-xl bg-slate-900/85 hover:bg-slate-800 border border-slate-700 text-xs flex items-center gap-1.5 transition-colors cursor-pointer text-amber-300 font-bold"
+                  title="Ganti Sudut Pandang Karakter (Depan/Belakang) [V]"
+                  aria-label="Ganti Sudut Pandang"
+                >
+                  <span>📷</span>
+                  <span className="hidden sm:inline">
+                    {isFacingFront ? 'Hadap Depan' : 'Hadap Rel'}
+                  </span>
+                </button>
+              )}
+
               <button
                 onClick={toggleSound}
                 className="w-9 h-9 rounded-xl bg-slate-900/85 hover:bg-slate-800 border border-slate-700 text-sm flex items-center justify-center transition-colors cursor-pointer"

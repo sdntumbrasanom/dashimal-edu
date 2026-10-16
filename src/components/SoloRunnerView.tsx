@@ -32,6 +32,7 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
   const [questionsCorrect, setQuestionsCorrect] = useState(0);
 
   const [activeQuestion, setActiveQuestion] = useState<Question | null>(null);
+  const [isFacingFront, setIsFacingFront] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
 
@@ -117,6 +118,13 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
         case 'ArrowDown':
           e.preventDefault();
           engineRef.current?.slide();
+          break;
+        case 'KeyV':
+          e.preventDefault();
+          if (engineRef.current) {
+            const next = engineRef.current.toggleFacingDirection();
+            setIsFacingFront(next);
+          }
           break;
       }
     };
@@ -254,6 +262,13 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
           onMoveRight={() => engineRef.current?.moveRight()}
           onJump={() => engineRef.current?.jump()}
           onSlide={() => engineRef.current?.slide()}
+          isFacingFront={isFacingFront}
+          onToggleView={() => {
+            if (engineRef.current) {
+              const next = engineRef.current.toggleFacingDirection();
+              setIsFacingFront(next);
+            }
+          }}
         />
       )}
 

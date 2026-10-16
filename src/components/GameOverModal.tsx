@@ -73,33 +73,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleShareBattleWhatsApp = () => {
-    if (!p2Stats || !p2Animal) return;
-    const winnerName = isDraw
-      ? 'Hasil Seri Imbang'
-      : p1Wins
-      ? p1Stats.name
-      : p2Stats.name;
 
-    const text =
-      `⚔️ *HASIL PERTANDINGAN BATTLE SUBWAY SURFERS EDUKASI* ⚔️\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🔑 *Kode Soal*: ${token ? token.code : 'Latihan'}\n` +
-      `🏆 *Pemenang*: *${winnerName}* 🎉\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `👤 *Pemain 1*: ${p1Stats.name} (${p1Animal.species})\n` +
-      `   • Skor: ${Math.floor(p1Stats.score).toLocaleString('id-ID')} Poin\n` +
-      `   • Jarak: ${Math.floor(p1Stats.distance)} m | Kuis: ${p1Stats.questionsCorrect}/${p1Stats.questionsTotal} Benar\n` +
-      `\n` +
-      `👤 *Pemain 2*: ${p2Stats.name} (${p2Animal.species})\n` +
-      `   • Skor: ${Math.floor(p2Stats.score).toLocaleString('id-ID')} Poin\n` +
-      `   • Jarak: ${Math.floor(p2Stats.distance)} m | Kuis: ${p2Stats.questionsCorrect}/${p2Stats.questionsTotal} Benar\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `Dikirim via Animal Subway Surfers Edukasi 🚀`;
-
-    const url = buildWhatsAppUrl(token?.teacherPhone, text);
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 animate-fadeIn overflow-y-auto">
@@ -242,23 +216,21 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </div>
         )}
 
-        {/* WhatsApp Share Button */}
-        <div className="mb-4">
-          <button
-            onClick={() =>
-              mode === 'battle'
-                ? handleShareBattleWhatsApp()
-                : handleShareWhatsApp(p1Stats, p1Animal.name)
-            }
-            className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-base rounded-2xl shadow-[0_8px_25px_rgba(16,185,129,0.4)] transition-all cursor-pointer flex items-center justify-center gap-3"
-          >
-            <span className="text-2xl">📲</span>
-            <span>BAGIKAN NILAI KE WHATSAPP GURU</span>
-          </button>
-          <div className="text-center text-[11px] text-slate-400 mt-1.5">
-            Format pesan resmi berisi nama siswa, kode kuis, skor, dan ketepatan jawaban.
+        {/* WhatsApp Share Button - Only in Solo Mode as requested */}
+        {mode === 'solo' && (
+          <div className="mb-4">
+            <button
+              onClick={() => handleShareWhatsApp(p1Stats, p1Animal.name)}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-base rounded-2xl shadow-[0_8px_25px_rgba(16,185,129,0.4)] transition-all cursor-pointer flex items-center justify-center gap-3"
+            >
+              <span className="text-2xl">📲</span>
+              <span>BAGIKAN NILAI KE WHATSAPP GURU</span>
+            </button>
+            <div className="text-center text-[11px] text-slate-400 mt-1.5">
+              Format pesan resmi berisi nama siswa, kode kuis, skor, dan ketepatan jawaban.
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-3">
