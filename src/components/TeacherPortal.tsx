@@ -10,6 +10,7 @@ import {
   buildGoogleSheetCsvUrl,
   parseQuestionsCsv,
 } from '../game/quizParser.ts';
+import { FullscreenButton } from './FullscreenButton.tsx';
 
 interface TeacherPortalProps {
   onBack: () => void;
@@ -41,7 +42,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
       setIsAuthenticated(true);
       setLoginError('');
     } else {
-      setLoginError('Username atau Password salah! (Gunakan: guru / guruhebat)');
+      setLoginError('Username atau Password salah! (Hubungi 085722228896)');
     }
   };
 
@@ -195,7 +196,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="guru"
+                placeholder="Masukkan Username"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm"
                 required
               />
@@ -209,7 +210,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="guruhebat"
+                placeholder="Masukkan Password"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm"
                 required
               />
@@ -230,7 +231,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
           </form>
 
           <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <span>Petunjuk: guru / guruhebat</span>
+            <span>Petunjuk: Masukkan Username dan Password</span>
             <button
               onClick={onBack}
               className="text-blue-400 hover:underline cursor-pointer"
@@ -253,7 +254,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
             <div className="flex items-center gap-2">
               <span className="text-2xl">👨‍🏫</span>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                Dashboard Manajemen Soal Guru
+                Dashboard Manajemen Guru
               </h1>
             </div>
             <p className="text-slate-400 text-sm mt-1">
@@ -261,6 +262,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <FullscreenButton variant="header" />
             <button
               onClick={() => setIsAuthenticated(false)}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 cursor-pointer"
@@ -418,7 +420,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
                       type="text"
                       value={teacherName}
                       onChange={(e) => setTeacherName(e.target.value)}
-                      placeholder="Contoh: Bu Anita, S.Pd."
+                      placeholder="Contoh: {Pak Misbah}, S.PdI."
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500"
                       required
                     />

@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import { AnimalId, Question } from '../types/game.ts';
 import { buildAnimalModel, AnimatedAnimalGroup } from './animalModels.ts';
 import {
+  createNatureHorizon,
+  createNatureTrackChunk,
+  NATURE_COLORS,
+} from './natureScenery.ts';
+import {
   playJumpSound,
   playSlideSound,
   playCoinSound,
@@ -98,12 +103,20 @@ export class SubwayRunnerEngine {
   // Particle burst ring
   private particleGroup = new THREE.Group();
 
+  // Majestic Nature Horizon (Distant Mountains, Sun, Floating Clouds)
+  private natureHorizon?: {
+    group: THREE.Group;
+    clouds: THREE.Group[];
+    update: (delta: number) => void;
+  };
+
   constructor(container: HTMLElement, config: EngineConfig) {
     this.container = container;
     this.config = config;
     this.lives = config.initialLives;
     this.maxLives = config.maxLives;
-    this.facingFront = config.facingFront !== undefined ? config.facingFront : true;
+    // Default false: animal faces forward down the track (-Z, rotation.y = Math.PI)
+    this.facingFront = config.facingFront !== undefined ? config.facingFront : false;
 
     // Renderer
     const isHeadless =
@@ -117,34 +130,38 @@ export class SubwayRunnerEngine {
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.toneMappingExposure = 1.18;
     this.renderer.setPixelRatio(isHeadless ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
 
     container.appendChild(this.renderer.domElement);
 
-    // Scene & Fog
+    // Bright Sunny Daylight Sky & Gentle Mountain Fog
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0f172a);
-    this.scene.fog = new THREE.FogExp2(0x0f172a, 0.016);
+    this.scene.background = new THREE.Color(NATURE_COLORS.sky);
+    this.scene.fog = new THREE.FogExp2(NATURE_COLORS.skyFog, 0.005);
 
-    // Camera
+    // Camera (extended draw distance for distant mountain panorama)
     this.camera = new THREE.PerspectiveCamera(
       60,
       container.clientWidth / container.clientHeight,
       0.1,
-      140
+      250
     );
     this.camera.position.set(0, 3.8, 5.6);
-    this.camera.lookAt(0, 1.3, -12);
+    this.camera.lookAt(0, 1.4, -12);
 
-    // Lighting
-    const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x1e293b, 1.0);
+    // Bright Natural Sunlight & Sky/Meadow Bounce
+    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x86efac, 1.4);
     this.scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffedd5, 1.6);
-    dirLight.position.set(10, 20, 15);
+    const dirLight = new THREE.DirectionalLight(0xfffbeb, 2.2);
+    dirLight.position.set(30, 45, 25);
     this.scene.add(dirLight);
+
+    // Distant Mountain Ranges, Radiant Sun, and Floating Clouds
+    this.natureHorizon = createNatureHorizon();
+    this.scene.add(this.natureHorizon.group);
 
     // Track & Ground
     this.initTrackChunks();
@@ -263,98 +280,10 @@ export class SubwayRunnerEngine {
   private initTrackChunks() {
     const chunkLength = 40;
     for (let i = 0; i < 5; i++) {
-      const chunk = this.createTrackChunk(i * -chunkLength);
+      const chunk = createNatureTrackChunk(i * -chunkLength, LANES);
       this.trackPieces.push(chunk);
       this.scene.add(chunk);
     }
-  }
-
-  private createTrackChunk(zPos: number): THREE.Group {
-    const group = new THREE.Group();
-    group.position.z = zPos;
-
-    // Ground gravel ballast
-    const ballastGeo = new THREE.PlaneGeometry(16, 40);
-    const ballastMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.9,
-      metalness: 0.1,
-    });
-    const ballast = new THREE.Mesh(ballastGeo, ballastMat);
-    ballast.rotation.x = -Math.PI / 2;
-    ballast.position.y = -0.05;
-    group.add(ballast);
-
-    // Track Ties (wooden sleepers) across 3 lanes
-    const tieGeo = new THREE.BoxGeometry(7.6, 0.08, 0.4);
-    const tieMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.8,
-    });
-    for (let z = -18; z <= 18; z += 1.8) {
-      const tie = new THREE.Mesh(tieGeo, tieMat);
-      tie.position.set(0, 0.01, z);
-      group.add(tie);
-    }
-
-    // Steel Rails for 3 lanes
-    const railMat = new THREE.MeshStandardMaterial({
-      color: 0xcfd8dc,
-      metalness: 0.9,
-      roughness: 0.2,
-    });
-    const railGeo = new THREE.BoxGeometry(0.08, 0.1, 40);
-
-    LANES.forEach((lx) => {
-      // Left rail
-      const r1 = new THREE.Mesh(railGeo, railMat);
-      r1.position.set(lx - 0.7, 0.06, 0);
-      group.add(r1);
-      // Right rail
-      const r2 = new THREE.Mesh(railGeo, railMat);
-      r2.position.set(lx + 0.7, 0.06, 0);
-      group.add(r2);
-    });
-
-    // Side tunnel walls / arches / pillars
-    const girderMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      metalness: 0.5,
-      roughness: 0.4,
-    });
-    const pillarGeo = new THREE.BoxGeometry(0.6, 5, 0.6);
-    const beamGeo = new THREE.BoxGeometry(11, 0.5, 0.6);
-
-    [-18, 18].forEach((pz) => {
-      // Left pillar
-      const pLeft = new THREE.Mesh(pillarGeo, girderMat);
-      pLeft.position.set(-4.8, 2.5, pz);
-      group.add(pLeft);
-      // Right pillar
-      const pRight = new THREE.Mesh(pillarGeo, girderMat);
-      pRight.position.set(4.8, 2.5, pz);
-      group.add(pRight);
-      // Overhead girder beam
-      const beam = new THREE.Mesh(beamGeo, girderMat);
-      beam.position.set(0, 4.8, pz);
-      group.add(beam);
-
-      // Warning Traffic Lights (Red, Yellow, Green LEDs)
-      LANES.forEach((lx) => {
-        const lightBox = new THREE.Mesh(
-          new THREE.BoxGeometry(0.35, 0.5, 0.2),
-          new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 })
-        );
-        lightBox.position.set(lx, 4.3, pz);
-        const ledMat = new THREE.MeshBasicMaterial({ color: lx === 0 ? 0x22c55e : 0xf59e0b });
-        const led = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), ledMat);
-        led.position.set(0, 0, 0.12);
-        lightBox.add(led);
-        group.add(lightBox);
-      });
-    });
-
-    return group;
   }
 
   private spawnObstaclesAndPickups(chunkZ: number) {
@@ -364,20 +293,38 @@ export class SubwayRunnerEngine {
     const rand = Math.random();
 
     if (rand < 0.4) {
-      // Low Hurdle (Jump over)
+      // Low Hurdle (Jump over) - Rustic Nature Log with safety amber rings and support stakes
       const hurdle = new THREE.Group();
       hurdle.position.set(laneX, 0, chunkZ);
 
-      const barMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 });
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.25, 0.2), barMat);
-      bar.position.y = 0.45;
-      hurdle.add(bar);
+      // Carved timber log
+      const logMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 1.85, 10), logMat);
+      log.rotation.z = Math.PI / 2;
+      log.position.y = 0.44;
+      hurdle.add(log);
 
-      const postMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 });
+      // Warning amber safety bands
+      const bandMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35 });
+      [-0.45, 0.45].forEach((bx) => {
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.23, 0.3, 10), bandMat);
+        band.rotation.z = Math.PI / 2;
+        band.position.set(bx, 0.44, 0);
+        hurdle.add(band);
+      });
+
+      // Rustic wooden support posts
+      const stakeMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.8 });
       [-0.8, 0.8].forEach((px) => {
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.6, 8), postMat);
-        post.position.set(px, 0.3, 0);
-        hurdle.add(post);
+        const stake1 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.75, 7), stakeMat);
+        stake1.position.set(px, 0.35, -0.1);
+        stake1.rotation.x = 0.22;
+        hurdle.add(stake1);
+
+        const stake2 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.75, 7), stakeMat);
+        stake2.position.set(px, 0.35, 0.1);
+        stake2.rotation.x = -0.22;
+        hurdle.add(stake2);
       });
 
       this.scene.add(hurdle);
@@ -392,27 +339,37 @@ export class SubwayRunnerEngine {
         passed: false,
       });
     } else if (rand < 0.7) {
-      // High Overhead Sign (Slide/Duck under)
+      // High Overhead Sign (Slide/Duck under) - Scenic Nature Park Timber Arch with Ivy Vines
       const overhead = new THREE.Group();
       overhead.position.set(laneX, 0, chunkZ);
 
-      const signMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4 });
+      // Wooden warning signboard
+      const signMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.75 });
       const sign = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.1, 0.25), signMat);
-      sign.position.y = 1.9;
+      sign.position.y = 1.95;
       overhead.add(sign);
 
-      // Warning stripes on sign
-      const stripeMat = new THREE.MeshBasicMaterial({ color: 0x18181b });
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.2, 0.26), stripeMat);
-      stripe.position.y = 1.9;
-      overhead.add(stripe);
+      // Vibrant yellow/amber warning chevron board
+      const bannerMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35 });
+      const banner = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.65, 0.27), bannerMat);
+      banner.position.y = 1.95;
+      overhead.add(banner);
 
-      // Posts on sides
-      [-1.0, 1.0].forEach((px) => {
-        const post = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.06, 0.06, 2.5, 8),
-          new THREE.MeshStandardMaterial({ color: 0x64748b })
+      // Cute hanging green vines
+      [-0.6, 0, 0.6].forEach((vx) => {
+        const vine = new THREE.Mesh(
+          new THREE.SphereGeometry(0.18, 6, 6),
+          new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.8 })
         );
+        vine.position.set(vx, 1.35, 0.12);
+        vine.scale.set(0.85, 1.4, 0.85);
+        overhead.add(vine);
+      });
+
+      // Wooden side posts
+      const postMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
+      [-1.0, 1.0].forEach((px) => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 2.5, 8), postMat);
         post.position.set(px, 1.25, 0);
         overhead.add(post);
       });
@@ -425,38 +382,55 @@ export class SubwayRunnerEngine {
         z: chunkZ,
         width: 1.8,
         height: 1.6,
-        minY: 1.0, // Open clearance below 1.0m!
+        minY: 1.0, // Open clearance below 1.0m
         passed: false,
       });
     } else {
-      // Subway Cart / Barrier (Block lane completely)
+      // Safari Express Train (Block lane completely)
       const train = new THREE.Group();
       train.position.set(laneX, 0, chunkZ);
 
+      // Cheerful Yellow/Amber Locomotive Body
       const cartMat = new THREE.MeshStandardMaterial({
-        color: 0x2563eb,
-        metalness: 0.6,
-        roughness: 0.3,
+        color: 0xf59e0b, // Warm vibrant amber
+        metalness: 0.25,
+        roughness: 0.35,
       });
-      const cart = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.2, 3.5), cartMat);
-      cart.position.y = 1.1;
+      const cart = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.2, 3.8), cartMat);
+      cart.position.y = 1.15;
       train.add(cart);
 
-      // Windshield & lights
-      const glassMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1 });
-      const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8), glassMat);
-      glass.position.set(0, 1.4, 1.76);
+      // Emerald Forest Green Roof
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.4 });
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.35, 3.9), roofMat);
+      roof.position.y = 2.35;
+      train.add(roof);
+
+      // Front Sky-Blue Windshield
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0x7dd3fc,
+        roughness: 0.1,
+        metalness: 0.3,
+      });
+      const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.85), glassMat);
+      glass.position.set(0, 1.5, 1.91);
       train.add(glass);
 
-      // Red taillights
-      [-0.6, 0.6].forEach((tx) => {
-        const light = new THREE.Mesh(
-          new THREE.SphereGeometry(0.12, 8, 8),
-          new THREE.MeshBasicMaterial({ color: 0xef4444 })
+      // Glowing Warm Headlights
+      [-0.55, 0.55].forEach((hx) => {
+        const headlight = new THREE.Mesh(
+          new THREE.SphereGeometry(0.16, 10, 10),
+          new THREE.MeshBasicMaterial({ color: 0xfef08a })
         );
-        light.position.set(tx, 0.6, 1.76);
-        train.add(light);
+        headlight.position.set(hx, 0.75, 1.91);
+        train.add(headlight);
       });
+
+      // Safari decorative green stripe
+      const stripeMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.5 });
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.3, 3.82), stripeMat);
+      stripe.position.y = 0.55;
+      train.add(stripe);
 
       this.scene.add(train);
       this.obstacles.push({
@@ -587,6 +561,11 @@ export class SubwayRunnerEngine {
     if (this.isPaused) {
       this.renderer.render(this.scene, this.camera);
       return;
+    }
+
+    // Update floating clouds in the sunny nature sky
+    if (this.natureHorizon) {
+      this.natureHorizon.update(dt);
     }
 
     // Advance speed gradually
@@ -790,6 +769,9 @@ export class SubwayRunnerEngine {
     window.removeEventListener('resize', this.onWindowResize);
 
     // Clean up meshes
+    if (this.natureHorizon) {
+      this.scene.remove(this.natureHorizon.group);
+    }
     this.obstacles.forEach((o) => this.scene.remove(o.mesh));
     this.pickups.forEach((p) => this.scene.remove(p.mesh));
     this.trackPieces.forEach((t) => this.scene.remove(t));

@@ -5,7 +5,9 @@ import { SubwayRunnerEngine } from '../game/SubwayRunnerEngine.ts';
 import { GameHUD } from './GameHUD.tsx';
 import { QuestionModal } from './QuestionModal.tsx';
 import { GameOverModal } from './GameOverModal.tsx';
+import { FullscreenButton } from './FullscreenButton.tsx';
 import { handleAnswerQuestion } from '../game/gameLogic.ts';
+import { useSoundManager } from '../hooks/useSoundManager.ts';
 
 interface BattleRunnerViewProps {
   player1Name: string;
@@ -29,6 +31,19 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
   const engine1Ref = useRef<SubwayRunnerEngine | null>(null);
   const engine2Ref = useRef<SubwayRunnerEngine | null>(null);
 
+  const {
+    playBGM,
+    stopBGM,
+    playJump,
+    playSlide,
+    playCoin,
+    playHit,
+    playBonus,
+    playCorrect,
+    playWrong,
+    playGameOver,
+  } = useSoundManager('game');
+
   // Player 1 state
   const [p1Lives, setP1Lives] = useState(3);
   const [p1Score, setP1Score] = useState(0);
@@ -49,7 +64,8 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
   const [p2Dead, setP2Dead] = useState(false);
   const [p2ActiveQuestion, setP2ActiveQuestion] = useState<Question | null>(null);
 
-  const [isFacingFront, setIsFacingFront] = useState(true);
+  // Default false: animals face forward down the track
+  const [isFacingFront, setIsFacingFront] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
 
@@ -69,35 +85,52 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
   useEffect(() => {
     if (p1Dead && p2Dead) {
       setIsGameOver(true);
+      playGameOver();
+      stopBGM();
     }
-  }, [p1Dead, p2Dead]);
+  }, [p1Dead, p2Dead, playGameOver, stopBGM]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as unknown as { __testTriggerP1Question?: () => void }).__testTriggerP1Question = () => {
         if (questions.length > 0) {
           setP1ActiveQuestion(questions[0]);
+          playBonus();
         }
       };
     }
-  }, [questions]);
+  }, [questions, playBonus]);
 
   // Setup Engine for Player 1
   useEffect(() => {
     if (!mount1Ref.current) return;
+
+    playBGM('game');
 
     const engine1 = new SubwayRunnerEngine(mount1Ref.current, {
       animalId: player1Animal,
       initialLives: 3,
       maxLives: 3, // exactly 3 lives in battle
       questions,
+      facingFront: false, // face forward down the track
       callbacks: {
         onHit: (newLives, dead) => {
           setP1Lives(newLives);
-          if (dead) setP1Dead(true);
+          if (dead) {
+            setP1Dead(true);
+            playHit();
+          } else {
+            playHit();
+          }
         },
-        onQuestionTrigger: (q) => setP1ActiveQuestion(q),
-        onCoinCollect: (c) => setP1Coins(c),
+        onQuestionTrigger: (q) => {
+          setP1ActiveQuestion(q);
+          playBonus();
+        },
+        onCoinCollect: (c) => {
+          setP1Coins(c);
+          playCoin();
+        },
         onStatsUpdate: (s) => {
           setP1Distance(s.distance);
           setP1Score(s.score);
@@ -112,7 +145,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       engine1.destroy();
       engine1Ref.current = null;
     };
-  }, [player1Animal, questions]);
+  }, [player1Animal, questions, playBGM, playHit, playBonus, playCoin]);
 
   // Setup Engine for Player 2
   useEffect(() => {
@@ -123,13 +156,25 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       initialLives: 3,
       maxLives: 3, // exactly 3 lives in battle
       questions,
+      facingFront: false, // face forward down the track
       callbacks: {
         onHit: (newLives, dead) => {
           setP2Lives(newLives);
-          if (dead) setP2Dead(true);
+          if (dead) {
+            setP2Dead(true);
+            playHit();
+          } else {
+            playHit();
+          }
         },
-        onQuestionTrigger: (q) => setP2ActiveQuestion(q),
-        onCoinCollect: (c) => setP2Coins(c),
+        onQuestionTrigger: (q) => {
+          setP2ActiveQuestion(q);
+          playBonus();
+        },
+        onCoinCollect: (c) => {
+          setP2Coins(c);
+          playCoin();
+        },
         onStatsUpdate: (s) => {
           setP2Distance(s.distance);
           setP2Score(s.score);
@@ -144,7 +189,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       engine2.destroy();
       engine2Ref.current = null;
     };
-  }, [player2Animal, questions]);
+  }, [player2Animal, questions, playHit, playBonus, playCoin]);
 
   // Unified Keyboard Controls: P1 (WASD) and P2 (Arrow Keys)
   useEffect(() => {
@@ -179,9 +224,11 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         } else if (e.code === 'KeyW') {
           e.preventDefault();
           engine1Ref.current?.jump();
+          playJump();
         } else if (e.code === 'KeyS') {
           e.preventDefault();
           engine1Ref.current?.slide();
+          playSlide();
         }
       }
 
@@ -196,9 +243,11 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         } else if (e.code === 'ArrowUp') {
           e.preventDefault();
           engine2Ref.current?.jump();
+          playJump();
         } else if (e.code === 'ArrowDown') {
           e.preventDefault();
           engine2Ref.current?.slide();
+          playSlide();
         }
       }
 
@@ -210,10 +259,16 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isGameOver, isPaused, p1Dead, p2Dead, p1ActiveQuestion, p2ActiveQuestion]);
+  }, [isGameOver, isPaused, p1Dead, p2Dead, p1ActiveQuestion, p2ActiveQuestion, playJump, playSlide]);
 
   const handleP1Answer = useCallback(
     (isCorrect: boolean) => {
+      if (isCorrect) {
+        playCorrect();
+      } else {
+        playWrong();
+      }
+
       const outcome = handleAnswerQuestion({
         isCorrect,
         currentLives: p1Lives,
@@ -230,11 +285,17 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       setP1ActiveQuestion(null);
       engine1Ref.current?.resume();
     },
-    [p1Lives, p1Score, p1QTotal, p1QCorrect]
+    [p1Lives, p1Score, p1QTotal, p1QCorrect, playCorrect, playWrong]
   );
 
   const handleP2Answer = useCallback(
     (isCorrect: boolean) => {
+      if (isCorrect) {
+        playCorrect();
+      } else {
+        playWrong();
+      }
+
       const outcome = handleAnswerQuestion({
         isCorrect,
         currentLives: p2Lives,
@@ -251,7 +312,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       setP2ActiveQuestion(null);
       engine2Ref.current?.resume();
     },
-    [p2Lives, p2Score, p2QTotal, p2QCorrect]
+    [p2Lives, p2Score, p2QTotal, p2QCorrect, playCorrect, playWrong]
   );
 
   const handleRestart = () => {
@@ -366,11 +427,18 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
             setIsPaused(true);
             engine1Ref.current?.pause();
             engine2Ref.current?.pause();
+            stopBGM();
           }}
           onMoveLeft={() => engine1Ref.current?.moveLeft()}
           onMoveRight={() => engine1Ref.current?.moveRight()}
-          onJump={() => engine1Ref.current?.jump()}
-          onSlide={() => engine1Ref.current?.slide()}
+          onJump={() => {
+            engine1Ref.current?.jump();
+            playJump();
+          }}
+          onSlide={() => {
+            engine1Ref.current?.slide();
+            playSlide();
+          }}
           isFacingFront={isFacingFront}
           onToggleView={handleToggleView}
           isBattle={true}
@@ -416,11 +484,18 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
             setIsPaused(true);
             engine1Ref.current?.pause();
             engine2Ref.current?.pause();
+            stopBGM();
           }}
           onMoveLeft={() => engine2Ref.current?.moveLeft()}
           onMoveRight={() => engine2Ref.current?.moveRight()}
-          onJump={() => engine2Ref.current?.jump()}
-          onSlide={() => engine2Ref.current?.slide()}
+          onJump={() => {
+            engine2Ref.current?.jump();
+            playJump();
+          }}
+          onSlide={() => {
+            engine2Ref.current?.slide();
+            playSlide();
+          }}
           isFacingFront={isFacingFront}
           onToggleView={handleToggleView}
           isBattle={true}
@@ -448,11 +523,16 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
                   setIsPaused(false);
                   engine1Ref.current?.resume();
                   engine2Ref.current?.resume();
+                  playBGM('game');
                 }}
                 className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl cursor-pointer"
               >
                 Lanjutkan (P / Esc)
               </button>
+
+              {/* Fullscreen Toggle in Pause Menu */}
+              <FullscreenButton variant="menu" />
+
               <button
                 onClick={handleRestart}
                 className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl cursor-pointer"

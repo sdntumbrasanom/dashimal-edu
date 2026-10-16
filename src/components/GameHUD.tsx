@@ -1,5 +1,6 @@
 import React from 'react';
 import { getMuted, setMuted } from '../utils/sound.ts';
+import { FullscreenButton } from './FullscreenButton.tsx';
 
 interface GameHUDProps {
   playerName: string;
@@ -97,19 +98,21 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </div>
           </div>
 
-          {/* Utility Buttons: View Toggle, Mute & Pause */}
+          {/* Utility Buttons: Fullscreen, View Toggle, Mute & Pause */}
           {(!isBattle || playerSide === 'left') && (
             <div className="flex items-center gap-1.5 pointer-events-auto">
+              <FullscreenButton variant="hud" />
+
               {onToggleView && (
                 <button
                   onClick={onToggleView}
                   className="h-9 px-2.5 rounded-xl bg-slate-900/85 hover:bg-slate-800 border border-slate-700 text-xs flex items-center gap-1.5 transition-colors cursor-pointer text-amber-300 font-bold"
-                  title="Ganti Sudut Pandang Karakter (Depan/Belakang) [V]"
+                  title="Ganti Sudut Pandang Karakter (Hadap Jalur / Hadap Kamera) [V]"
                   aria-label="Ganti Sudut Pandang"
                 >
                   <span>📷</span>
                   <span className="hidden sm:inline">
-                    {isFacingFront ? 'Hadap Depan' : 'Hadap Rel'}
+                    {isFacingFront ? 'Hadap Jalur' : 'Hadap Kamera'}
                   </span>
                 </button>
               )}
@@ -117,8 +120,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               <button
                 onClick={toggleSound}
                 className="w-9 h-9 rounded-xl bg-slate-900/85 hover:bg-slate-800 border border-slate-700 text-sm flex items-center justify-center transition-colors cursor-pointer"
-                title="Mute Audio"
-                aria-label="Mute Audio"
+                title={isMutedState ? 'Bunyikan Audio' : 'Bisukan Audio'}
+                aria-label={isMutedState ? 'Bunyikan Audio' : 'Bisukan Audio'}
               >
                 {isMutedState ? '🔇' : '🔊'}
               </button>

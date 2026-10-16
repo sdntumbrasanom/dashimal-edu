@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { getMuted, setMuted } from '../utils/sound.ts';
 import { ANIMALS } from '../game/animalsData.ts';
+import { useSoundManager } from '../hooks/useSoundManager.ts';
+import { FullscreenButton } from './FullscreenButton.tsx';
 
 interface TitleScreenProps {
   onStartGame: () => void;
@@ -11,7 +12,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStartGame,
   onOpenTeacherPortal,
 }) => {
-  const [isMutedState, setIsMutedState] = React.useState(getMuted());
+  const { isMuted, toggleMute, playBGM } = useSoundManager('title');
+
+  useEffect(() => {
+    // Start BGM on user gesture / interaction
+    const handleInteraction = () => {
+      playBGM('title');
+    };
+    window.addEventListener('pointerdown', handleInteraction, { once: true });
+    window.addEventListener('keydown', handleInteraction, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleInteraction);
+      window.removeEventListener('keydown', handleInteraction);
+    };
+  }, [playBGM]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,20 +38,14 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onStartGame]);
 
-  const toggleSound = () => {
-    const next = !isMutedState;
-    setMuted(next);
-    setIsMutedState(next);
-  };
-
   return (
     <div className="relative min-h-screen w-full bg-slate-950 text-white flex flex-col justify-between overflow-hidden select-none">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-gradient-to-b from-purple-950/40 via-slate-950 to-slate-950 pointer-events-none" />
       <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
-      {/* Top Bar with Brand & Sound */}
-      <header className="relative z-10 px-6 py-5 flex items-center justify-between max-w-7xl mx-auto w-full">
+      {/* Top Bar with Brand, Fullscreen & Sound */}
+      <header className="relative z-10 px-4 sm:px-6 py-4 flex items-center justify-between max-w-7xl mx-auto w-full gap-2">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🚇</span>
           <span className="font-mono text-xs font-bold tracking-wider text-amber-400 uppercase bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
@@ -45,22 +53,26 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Fullscreen Button */}
+          <FullscreenButton variant="header" />
+
+          {/* Sound Toggle */}
           <button
-            onClick={toggleSound}
-            className="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-lg transition-all cursor-pointer"
-            title={isMutedState ? 'Bunyikan Suara' : 'Bisukan Suara'}
-            aria-label={isMutedState ? 'Bunyikan Suara' : 'Bisukan Suara'}
+            onClick={toggleMute}
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-lg transition-all cursor-pointer"
+            title={isMuted ? 'Bunyikan Suara' : 'Bisukan Suara'}
+            aria-label={isMuted ? 'Bunyikan Suara' : 'Bisukan Suara'}
           >
-            {isMutedState ? '🔇' : '🔊'}
+            {isMuted ? '🔇' : '🔊'}
           </button>
 
           <button
             onClick={onOpenTeacherPortal}
-            className="px-4 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-bold text-blue-300 hover:text-white border border-blue-500/30 flex items-center gap-2 transition-all cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-bold text-blue-300 hover:text-white border border-blue-500/30 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer"
           >
             <span>👨‍🏫</span>
-            <span>Portal Guru</span>
+            <span className="hidden sm:inline">Portal Guru</span>
           </button>
         </div>
       </header>

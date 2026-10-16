@@ -5,7 +5,9 @@ import { SubwayRunnerEngine } from '../game/SubwayRunnerEngine.ts';
 import { GameHUD } from './GameHUD.tsx';
 import { QuestionModal } from './QuestionModal.tsx';
 import { GameOverModal } from './GameOverModal.tsx';
+import { FullscreenButton } from './FullscreenButton.tsx';
 import { handleAnswerQuestion } from '../game/gameLogic.ts';
+import { useSoundManager } from '../hooks/useSoundManager.ts';
 
 interface SoloRunnerViewProps {
   playerName: string;
@@ -23,6 +25,19 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
   const mountRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<SubwayRunnerEngine | null>(null);
 
+  const {
+    playBGM,
+    stopBGM,
+    playJump,
+    playSlide,
+    playCoin,
+    playHit,
+    playBonus,
+    playCorrect,
+    playWrong,
+    playGameOver,
+  } = useSoundManager('game');
+
   const [lives, setLives] = useState(3);
   const [maxLives] = useState(5);
   const [score, setScore] = useState(0);
@@ -32,7 +47,8 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
   const [questionsCorrect, setQuestionsCorrect] = useState(0);
 
   const [activeQuestion, setActiveQuestion] = useState<Question | null>(null);
-  const [isFacingFront, setIsFacingFront] = useState(true);
+  // Default false: animal faces forward down the track
+  const [isFacingFront, setIsFacingFront] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
 
@@ -43,23 +59,32 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
   useEffect(() => {
     if (!mountRef.current) return;
 
+    playBGM('game');
+
     const engine = new SubwayRunnerEngine(mountRef.current, {
       animalId,
       initialLives: 3,
       maxLives: 5,
       questions,
+      facingFront: false, // face forward down the track
       callbacks: {
         onHit: (newLives, dead) => {
           setLives(newLives);
           if (dead) {
             setIsGameOver(true);
+            playGameOver();
+            stopBGM();
+          } else {
+            playHit();
           }
         },
         onQuestionTrigger: (question) => {
           setActiveQuestion(question);
+          playBonus();
         },
         onCoinCollect: (newCoins) => {
           setCoins(newCoins);
+          playCoin();
         },
         onStatsUpdate: (stats) => {
           setDistance(stats.distance);
@@ -74,8 +99,9 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
     return () => {
       engine.destroy();
       engineRef.current = null;
+      stopBGM();
     };
-  }, [animalId, questions]);
+  }, [animalId, questions, playBGM, stopBGM, playHit, playGameOver, playBonus, playCoin]);
 
   // Keyboard controls
   useEffect(() => {
@@ -113,11 +139,13 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
         case 'Space':
           e.preventDefault();
           engineRef.current?.jump();
+          playJump();
           break;
         case 'KeyS':
         case 'ArrowDown':
           e.preventDefault();
           engineRef.current?.slide();
+          playSlide();
           break;
         case 'KeyV':
           e.preventDefault();
@@ -131,7 +159,7 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isGameOver, activeQuestion, isPaused]);
+  }, [isGameOver, activeQuestion, isPaused, playJump, playSlide]);
 
   // Touch swipe gestures
   useEffect(() => {
@@ -161,8 +189,10 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
       } else {
         if (dy < 0) {
           engineRef.current?.jump();
+          playJump();
         } else {
           engineRef.current?.slide();
+          playSlide();
         }
       }
     };
@@ -173,10 +203,16 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isGameOver, activeQuestion, isPaused]);
+  }, [isGameOver, activeQuestion, isPaused, playJump, playSlide]);
 
   const handleAnswer = useCallback(
     (isCorrect: boolean) => {
+      if (isCorrect) {
+        playCorrect();
+      } else {
+        playWrong();
+      }
+
       const outcome = handleAnswerQuestion({
         isCorrect,
         currentLives: lives,
@@ -198,7 +234,7 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
       setActiveQuestion(null);
       engineRef.current?.resume();
     },
-    [lives, maxLives, score, questionsTotal, questionsCorrect]
+    [lives, maxLives, score, questionsTotal, questionsCorrect, playCorrect, playWrong]
   );
 
   const handleRestart = () => {
@@ -257,11 +293,18 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
           onPause={() => {
             setIsPaused(true);
             engineRef.current?.pause();
+            stopBGM();
           }}
           onMoveLeft={() => engineRef.current?.moveLeft()}
           onMoveRight={() => engineRef.current?.moveRight()}
-          onJump={() => engineRef.current?.jump()}
-          onSlide={() => engineRef.current?.slide()}
+          onJump={() => {
+            engineRef.current?.jump();
+            playJump();
+          }}
+          onSlide={() => {
+            engineRef.current?.slide();
+            playSlide();
+          }}
           isFacingFront={isFacingFront}
           onToggleView={() => {
             if (engineRef.current) {
@@ -282,11 +325,16 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
                 onClick={() => {
                   setIsPaused(false);
                   engineRef.current?.resume();
+                  playBGM('game');
                 }}
                 className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl cursor-pointer"
               >
                 Lanjutkan (P / Esc)
               </button>
+
+              {/* Fullscreen Toggle in Pause Menu */}
+              <FullscreenButton variant="menu" />
+
               <button
                 onClick={handleRestart}
                 className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl cursor-pointer"

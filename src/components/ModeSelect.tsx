@@ -1,5 +1,6 @@
 import React from 'react';
 import { GameMode } from '../types/game.ts';
+import { FullscreenButton } from './FullscreenButton.tsx';
 
 interface ModeSelectProps {
   onSelectMode: (mode: GameMode) => void;
@@ -10,14 +11,18 @@ export const ModeSelect: React.FC<ModeSelectProps> = ({ onSelectMode, onBack }) 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-center items-center p-4 sm:p-8">
       <div className="max-w-4xl w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
+        {/* Header with Navigation and Fullscreen */}
+        <div className="flex items-center justify-between mb-4">
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white mb-3 cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white cursor-pointer"
           >
             ← Kembali ke Menu Utama
           </button>
+          <FullscreenButton variant="header" />
+        </div>
+
+        <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
             PILIH MODE PERMAINAN
           </h1>

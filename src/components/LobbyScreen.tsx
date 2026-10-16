@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GameMode, QuizToken } from '../types/game.ts';
 import { getTokenByCode, getAllTokens, saveToken } from '../utils/tokenStore.ts';
 import { buildGoogleSheetCsvUrl, parseQuestionsCsv } from '../game/quizParser.ts';
+import { FullscreenButton } from './FullscreenButton.tsx';
 
 interface LobbyScreenProps {
   mode: GameMode;
@@ -141,12 +142,15 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-center items-center p-4 sm:p-6">
       <div className="max-w-xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-        <button
-          onClick={onBack}
-          className="text-xs text-slate-400 hover:text-white mb-4 inline-flex items-center gap-1 cursor-pointer"
-        >
-          ← Ganti Mode Permainan
-        </button>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={onBack}
+            className="text-xs text-slate-400 hover:text-white inline-flex items-center gap-1 cursor-pointer"
+          >
+            ← Ganti Mode Permainan
+          </button>
+          <FullscreenButton variant="header" />
+        </div>
 
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-1">

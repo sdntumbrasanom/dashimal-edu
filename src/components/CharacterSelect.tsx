@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AnimalId, GameMode } from '../types/game.ts';
 import { ANIMALS } from '../game/animalsData.ts';
+import { FullscreenButton } from './FullscreenButton.tsx';
 
 interface CharacterSelectProps {
   mode: GameMode;
@@ -35,12 +36,14 @@ export const CharacterSelect: React.FC<CharacterSelectProps> = ({
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
           <div>
-            <button
-              onClick={onBack}
-              className="text-xs text-slate-400 hover:text-white mb-2 inline-flex items-center gap-1 cursor-pointer"
-            >
-              ← Kembali ke Lobi
-            </button>
+            <div className="flex items-center gap-3 mb-2">
+              <button
+                onClick={onBack}
+                className="text-xs text-slate-400 hover:text-white inline-flex items-center gap-1 cursor-pointer"
+              >
+                ← Kembali ke Lobi
+              </button>
+            </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
               PILIH KARAKTER HEWAN
             </h1>
@@ -49,31 +52,35 @@ export const CharacterSelect: React.FC<CharacterSelectProps> = ({
             </p>
           </div>
 
-          {/* If Battle mode, toggle between P1 and P2 picker */}
-          {mode === 'battle' && (
-            <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
-              <button
-                onClick={() => setActivePicking('p1')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activePicking === 'p1'
-                    ? 'bg-amber-500 text-slate-950 shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                P1: {player1Name} ({ANIMALS.find((a) => a.id === p1Animal)?.emoji})
-              </button>
-              <button
-                onClick={() => setActivePicking('p2')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activePicking === 'p2'
-                    ? 'bg-purple-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                P2: {player2Name} ({ANIMALS.find((a) => a.id === p2Animal)?.emoji})
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            <FullscreenButton variant="header" />
+
+            {/* If Battle mode, toggle between P1 and P2 picker */}
+            {mode === 'battle' && (
+              <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
+                <button
+                  onClick={() => setActivePicking('p1')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activePicking === 'p1'
+                      ? 'bg-amber-500 text-slate-950 shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  P1: {player1Name} ({ANIMALS.find((a) => a.id === p1Animal)?.emoji})
+                </button>
+                <button
+                  onClick={() => setActivePicking('p2')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activePicking === 'p2'
+                      ? 'bg-purple-500 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  P2: {player2Name} ({ANIMALS.find((a) => a.id === p2Animal)?.emoji})
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Selected Hero Highlight Card */}
