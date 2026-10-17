@@ -12,6 +12,13 @@ import {
 } from '../game/quizParser.ts';
 import { FullscreenButton } from './FullscreenButton.tsx';
 
+// --- TAMBAHAN BARU: URL template Google Spreadsheet kosong ---
+// Ganti ID_SPREADSHEET_ANDA dengan ID spreadsheet template milik Anda.
+// Format URL WAJIB berakhiran /template/preview
+const BLANK_SPREADSHEET_TEMPLATE_URL =
+  'https://docs.google.com/spreadsheets/d/10YdkL93c9iIFD8QxY4o1wkyEBy8aVcPSvzvCAFXeFzs/template/preview';
+// --- AKHIR TAMBAHAN BARU ---
+
 interface TeacherPortalProps {
   onBack: () => void;
 }
@@ -54,6 +61,16 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
     }
     return res;
   };
+
+  // --- TAMBAHAN BARU: handler buka template spreadsheet ---
+  const handleOpenBlankTemplate = () => {
+    window.open(
+      BLANK_SPREADSHEET_TEMPLATE_URL,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  };
+  // --- AKHIR TAMBAHAN BARU ---
 
   const handleFetchSpreadsheet = async () => {
     setFetchMessage(null);
@@ -362,6 +379,26 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
                   </div>
                 </div>
 
+                {/* --- TAMBAHAN BARU: Tombol Buat Spreadsheet Kosong --- */}
+                <div className="mt-1">
+                  <button
+                    type="button"
+                    onClick={handleOpenBlankTemplate}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs font-bold rounded-xl border border-emerald-500/40 cursor-pointer transition-colors"
+                    title="Buka template Google Spreadsheet kosong dengan header siap pakai"
+                  >
+                    <span>📄</span>
+                    Buat Spreadsheet Kosong (Template)
+                  </button>
+                  <p className="text-[11px] text-slate-500 mt-1.5">
+                    *Klik tombol di atas untuk membuka template spreadsheet dengan kolom A1–E1
+                    yang sudah terisi judul kolom. Setelah terbuka, klik{' '}
+                    <strong>"Use template"</strong> untuk membuat salinan di Google Drive Anda,
+                    lalu isi soal mulai baris ke-2 dan tempel link-nya pada kolom di atas.
+                  </p>
+                </div>
+                {/* --- AKHIR TAMBAHAN BARU --- */}
+
                 {/* Alternative Direct CSV Input accordion */}
                 <details className="text-xs text-slate-400 group">
                   <summary className="cursor-pointer text-blue-400 hover:underline list-none flex items-center gap-1">
@@ -420,7 +457,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
                       type="text"
                       value={teacherName}
                       onChange={(e) => setTeacherName(e.target.value)}
-                      placeholder="Contoh: {Pak Misbah}, S.PdI."
+                      placeholder="Contoh: Pak Misbah, S.PdI."
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500"
                       required
                     />
