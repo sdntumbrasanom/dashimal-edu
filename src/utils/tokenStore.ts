@@ -15,19 +15,19 @@ export const DEFAULT_TOKENS: QuizToken[] = [
         id: 'ipa-1',
         question: 'Hewan yang memakan tumbuhan dan daging disebut kelompok...',
         correctAnswer: 'Omnivora',
-        options: ['Omnivora', 'Karnivora', 'Herbivora', 'Insektivora'],
+        options: ['Karnivora', 'Omnivora', 'Herbivora', 'Insektivora'],
       },
       {
         id: 'ipa-2',
         question: 'Katak bernapas saat masih berupa berudu menggunakan...',
         correctAnswer: 'Insang',
-        options: ['Insang', 'Paru-paru', 'Kulit basah', 'Trakea'],
+        options: ['Paru-paru', 'Kulit basah', 'Insang', 'Trakea'],
       },
       {
         id: 'ipa-3',
         question: 'Proses tumbuhan hijau membuat makanan dengan cahaya matahari adalah...',
         correctAnswer: 'Fotosintesis',
-        options: ['Fotosintesis', 'Metamorfosis', 'Respirasi', 'Evaporasi'],
+        options: ['Metamorfosis', 'Respirasi', 'Evaporasi', 'Fotosintesis'],
       },
       {
         id: 'ipa-4',
@@ -39,13 +39,13 @@ export const DEFAULT_TOKENS: QuizToken[] = [
         id: 'ipa-5',
         question: 'Kelinci termasuk hewan mamalia karena berkembang biak dengan cara...',
         correctAnswer: 'Melahirkan (Vivipar)',
-        options: ['Melahirkan (Vivipar)', 'Bertelur (Ovipar)', 'Ovovivipar', 'Membelah diri'],
+        options: ['Bertelur (Ovipar)', 'Melahirkan (Vivipar)', 'Ovovivipar', 'Membelah diri'],
       },
       {
         id: 'ipa-6',
         question: 'Organ gerak utama pada burung untuk terbang di udara adalah...',
         correctAnswer: 'Sayap',
-        options: ['Sayap', 'Kaki', 'Ekor', 'Paruh'],
+        options: ['Kaki', 'Ekor', 'Sayap', 'Paruh'],
       },
     ],
   },
@@ -61,31 +61,31 @@ export const DEFAULT_TOKENS: QuizToken[] = [
         id: 'mat-1',
         question: 'Berapakah hasil dari 15 x 6 + 10?',
         correctAnswer: '100',
-        options: ['100', '90', '110', '95'],
+        options: ['90', '100', '110', '95'],
       },
       {
         id: 'mat-2',
         question: 'Bentuk persen (%) dari pecahan 3/4 adalah...',
         correctAnswer: '75%',
-        options: ['75%', '50%', '60%', '80%'],
+        options: ['50%', '60%', '80%', '75%'],
       },
       {
         id: 'mat-3',
         question: 'Sebuah persegi memiliki sisi 8 cm. Berapakah kelilingnya?',
         correctAnswer: '32 cm',
-        options: ['32 cm', '64 cm', '16 cm', '24 cm'],
+        options: ['64 cm', '32 cm', '16 cm', '24 cm'],
       },
       {
         id: 'mat-4',
         question: 'Berapakah akar kuadrat dari 144?',
         correctAnswer: '12',
-        options: ['12', '14', '11', '16'],
+        options: ['14', '11', '12', '16'],
       },
       {
         id: 'mat-5',
         question: 'Jika 3 pulpen harganya Rp 9.000, berapakah harga 5 pulpen?',
         correctAnswer: 'Rp 15.000',
-        options: ['Rp 15.000', 'Rp 12.000', 'Rp 18.000', 'Rp 20.000'],
+        options: ['Rp 12.000', 'Rp 18.000', 'Rp 15.000', 'Rp 20.000'],
       },
     ],
   },
@@ -93,7 +93,7 @@ export const DEFAULT_TOKENS: QuizToken[] = [
     code: 'BAHASA-ID',
     title: 'Kuis Bahasa Indonesia: Kosakata & Makna',
     teacherName: 'Ibu Ratna Dewi, S.Pd.',
-    teacherPhone: '',
+    teacherPhone: '085722228896',
     sheetUrl: 'https://docs.google.com/spreadsheets/d/demo-bahasa/edit',
     createdAt: '2026-10-13',
     questions: [
@@ -101,21 +101,21 @@ export const DEFAULT_TOKENS: QuizToken[] = [
         id: 'bi-1',
         question: 'Sinonim (persamaan kata) dari "Giat" adalah...',
         correctAnswer: 'Rajin',
-        options: ['Rajin', 'Malas', 'Lambat', 'Lengah'],
+        options: ['Malas', 'Rajin', 'Lambat', 'Lengah'],
       },
       {
         id: 'bi-2',
         question: 'Antonim (lawan kata) dari "Maju" adalah...',
         correctAnswer: 'Mundur',
-        options: ['Mundur', 'Berhenti', 'Naik', 'Jatuh'],
+        options: ['Berhenti', 'Naik', 'Jatuh', 'Mundur'],
       },
       {
         id: 'bi-3',
         question: 'Ungkapan "Kutu Buku" bermakna orang yang...',
         correctAnswer: 'Sangat gemar membaca buku',
         options: [
-          'Sangat gemar membaca buku',
           'Suka merusak buku',
+          'Sangat gemar membaca buku',
           'Menjual buku di pasar',
           'Menulis banyak buku',
         ],
@@ -124,7 +124,7 @@ export const DEFAULT_TOKENS: QuizToken[] = [
         id: 'bi-4',
         question: 'Tanda baca yang tepat untuk mengakhiri kalimat tanya adalah...',
         correctAnswer: 'Tanda tanya (?)',
-        options: ['Tanda tanya (?)', 'Tanda seru (!)', 'Tanda titik (.)', 'Tanda koma (,)'],
+        options: ['Tanda seru (!)', 'Tanda titik (.)', 'Tanda tanya (?)', 'Tanda koma (,)'],
       },
     ],
   },
@@ -139,7 +139,20 @@ export function getAllTokens(): QuizToken[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+      // Synchronize default tokens with latest questions distribution and phone
+      const merged = parsed.map((item: QuizToken) => {
+        const match = DEFAULT_TOKENS.find(
+          (d) => d.code.toUpperCase() === item.code?.toUpperCase()
+        );
+        if (match) {
+          return {
+            ...match,
+            teacherPhone: item.teacherPhone || match.teacherPhone,
+          };
+        }
+        return item;
+      });
+      return merged;
     }
     return DEFAULT_TOKENS;
   } catch (err) {
@@ -189,3 +202,23 @@ export function deleteToken(code: string): boolean {
     return false;
   }
 }
+
+export function updateTokenPhone(code: string, teacherPhone: string): boolean {
+  try {
+    const all = getAllTokens();
+    const target = all.find(
+      (t) => t.code.trim().toUpperCase() === code.trim().toUpperCase()
+    );
+    if (target) {
+      target.teacherPhone = teacherPhone.trim();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('Failed to update token phone', err);
+    return false;
+  }
+}
+
+

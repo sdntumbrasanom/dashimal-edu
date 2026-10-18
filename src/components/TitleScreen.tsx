@@ -112,7 +112,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 letterSpacing: '-2px',
               }}
             >
-              SUBWAY EDU
+              DASHIMAL EDU
             </text>
             <text
               x="50%"
@@ -129,7 +129,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 letterSpacing: '5px',
               }}
             >
-              FUN GAME EDUKATIF
+              Fun Game Edukatif
             </text>
           </svg>
         </div>

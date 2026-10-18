@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GameMode, QuizToken, AnimalId } from '../types/game.ts';
 import { ANIMALS } from '../game/animalsData.ts';
 import {
   generateWhatsAppMessage,
+  generateBattleWhatsAppMessage,
   buildWhatsAppUrl,
 } from '../game/gameLogic.ts';
 import { playGameOverSound } from '../utils/sound.ts';
@@ -36,6 +37,15 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   onRestart,
   onExitToMenu,
 }) => {
+  const [customPhone, setCustomPhone] = useState(token?.teacherPhone || '');
+  const [showEditPhone, setShowEditPhone] = useState(false);
+
+  useEffect(() => {
+    if (token?.teacherPhone) {
+      setCustomPhone(token.teacherPhone);
+    }
+  }, [token]);
+
   useEffect(() => {
     playGameOverSound();
     if (mode === 'battle') {
@@ -56,22 +66,43 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   const p1Wins = p2Stats ? p1Stats.score >= p2Stats.score : false;
   const isDraw = p2Stats ? p1Stats.score === p2Stats.score : false;
 
-  const handleShareWhatsApp = (stats: PlayerFinalStats, animalName: string) => {
-    const msg = generateWhatsAppMessage({
-      playerName: stats.name,
-      token,
-      score: stats.score,
-      distance: stats.distance,
-      coins: stats.coins,
-      questionsTotal: stats.questionsTotal,
-      questionsCorrect: stats.questionsCorrect,
-      livesRemaining: stats.lives,
-      animalName,
-    });
+  const effectivePhone = customPhone.trim() || token?.teacherPhone || '';
 
-    const url = buildWhatsAppUrl(token?.teacherPhone, msg);
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
+  // Solo WhatsApp message & url
+  const soloMsg = generateWhatsAppMessage({
+    playerName: p1Stats.name,
+    token,
+    score: p1Stats.score,
+    distance: p1Stats.distance,
+    coins: p1Stats.coins,
+    questionsTotal: p1Stats.questionsTotal,
+    questionsCorrect: p1Stats.questionsCorrect,
+    livesRemaining: p1Stats.lives,
+    animalName: p1Animal?.name || 'Karakter',
+  });
+  const soloWhatsAppUrl = buildWhatsAppUrl(effectivePhone, soloMsg);
+
+  // Battle WhatsApp message & url
+  const battleMsg =
+    p2Stats && p2Animal
+      ? generateBattleWhatsAppMessage({
+          p1Name: p1Stats.name,
+          p1Animal: p1Animal?.name || 'P1',
+          p1Score: p1Stats.score,
+          p1Distance: p1Stats.distance,
+          p1Correct: p1Stats.questionsCorrect,
+          p1Total: p1Stats.questionsTotal,
+          p2Name: p2Stats.name,
+          p2Animal: p2Animal?.name || 'P2',
+          p2Score: p2Stats.score,
+          p2Distance: p2Stats.distance,
+          p2Correct: p2Stats.questionsCorrect,
+          p2Total: p2Stats.questionsTotal,
+          token,
+        })
+      : '';
+  const battleWhatsAppUrl = buildWhatsAppUrl(effectivePhone, battleMsg);
+
 
 
 
@@ -216,21 +247,92 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </div>
         )}
 
-        {/* WhatsApp Share Button - Only in Solo Mode as requested */}
-        {mode === 'solo' && (
-          <div className="mb-4">
+        {/* WhatsApp Share Card - Directed to teacher's WhatsApp number */}
+        <div className="mb-5 bg-slate-800/90 border border-emerald-500/40 rounded-2xl p-4 sm:p-5 space-y-3 shadow-lg">
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-700/60">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">📱</span>
+              <div>
+                <div className="text-xs font-bold text-white flex flex-wrap items-center gap-1.5">
+                  <span>Tujuan WhatsApp Guru:</span>
+                  {effectivePhone ? (
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 font-mono text-xs font-bold rounded-lg border border-emerald-500/40">
+                      {effectivePhone}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-amber-300 italic font-normal">
+                      Belum ditentukan oleh guru
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {token?.teacherName
+                    ? `Guru Pengampu: ${token.teacherName}`
+                    : 'Kuis Latihan Soal'}
+                </div>
+              </div>
+            </div>
+
             <button
-              onClick={() => handleShareWhatsApp(p1Stats, p1Animal.name)}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-base rounded-2xl shadow-[0_8px_25px_rgba(16,185,129,0.4)] transition-all cursor-pointer flex items-center justify-center gap-3"
+              type="button"
+              onClick={() => setShowEditPhone(!showEditPhone)}
+              className="text-xs text-blue-400 hover:text-blue-300 underline cursor-pointer shrink-0"
+            >
+              {showEditPhone ? 'Tutup' : effectivePhone ? 'Ganti No. WA' : '+ Masukkan No. WA'}
+            </button>
+          </div>
+
+          {showEditPhone && (
+            <div className="pt-1 flex items-center gap-2">
+              <input
+                type="tel"
+                value={customPhone}
+                onChange={(e) => setCustomPhone(e.target.value)}
+                placeholder="Contoh: 081234567890"
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowEditPhone(false)}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Gunakan
+              </button>
+            </div>
+          )}
+
+          {mode === 'solo' ? (
+            <a
+              href={soloWhatsAppUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-sm sm:text-base rounded-2xl shadow-[0_8px_25px_rgba(16,185,129,0.35)] transition-all flex items-center justify-center gap-2.5 text-center cursor-pointer"
             >
               <span className="text-2xl">📲</span>
-              <span>BAGIKAN NILAI KE WHATSAPP GURU</span>
-            </button>
-            <div className="text-center text-[11px] text-slate-400 mt-1.5">
-              Format pesan resmi berisi nama siswa, kode kuis, skor, dan ketepatan jawaban.
-            </div>
+              <span>KIRIM NILAI KE WHATSAPP GURU</span>
+            </a>
+          ) : (
+            <a
+              href={battleWhatsAppUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-sm sm:text-base rounded-2xl shadow-[0_8px_25px_rgba(16,185,129,0.35)] transition-all flex items-center justify-center gap-2.5 text-center cursor-pointer"
+            >
+              <span className="text-2xl">⚔️</span>
+              <span>KIRIM LAPORAN BATTLE KE WHATSAPP GURU</span>
+            </a>
+          )}
+
+          <div className="text-center text-[11px] text-slate-400">
+            {effectivePhone ? (
+              <span className="text-emerald-400 font-medium">
+                ✔ Pesan otomatis ditujukan ke WhatsApp Guru ({effectivePhone})
+              </span>
+            ) : (
+              <span>Format pesan resmi siap dikirimkan via WhatsApp</span>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-3">

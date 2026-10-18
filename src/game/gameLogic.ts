@@ -132,17 +132,95 @@ export function generateWhatsAppMessage(params: {
 }
 
 /**
+ * Generates formatted WhatsApp share message for reporting battle results to teacher.
+ */
+export function generateBattleWhatsAppMessage(params: {
+  p1Name: string;
+  p1Animal: string;
+  p1Score: number;
+  p1Distance: number;
+  p1Correct: number;
+  p1Total: number;
+  p2Name: string;
+  p2Animal: string;
+  p2Score: number;
+  p2Distance: number;
+  p2Correct: number;
+  p2Total: number;
+  token?: QuizToken | null;
+}): string {
+  const {
+    p1Name,
+    p1Animal,
+    p1Score,
+    p1Distance,
+    p1Correct,
+    p1Total,
+    p2Name,
+    p2Animal,
+    p2Score,
+    p2Distance,
+    p2Correct,
+    p2Total,
+    token,
+  } = params;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const winnerStr =
+    p1Score > p2Score
+      ? `👑 Pemenang: *${p1Name}*`
+      : p2Score > p1Score
+      ? `👑 Pemenang: *${p2Name}*`
+      : `🤝 Hasil: *SERI (Imbang)*`;
+
+  const tokenInfo = token
+    ? `🔑 *Kode Soal*: ${token.code} (${token.title})\n👨‍🏫 *Guru*: ${token.teacherName || 'Bapak/Ibu Guru'}`
+    : `🔑 *Kode Soal*: Latihan Battle`;
+
+  return (
+    `⚔️ *LAPORAN HASIL BATTLE 2 PEMAIN - SUBWAY SURFERS EDUKASI* ⚔️\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `${tokenInfo}\n` +
+    `🏆 ${winnerStr}\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `👤 *Pemain 1*: ${p1Name} (${p1Animal})\n` +
+    `   • Skor: ${Math.floor(p1Score).toLocaleString('id-ID')} Poin\n` +
+    `   • Jarak: ${Math.floor(p1Distance)}m\n` +
+    `   • Kuis: ${p1Correct}/${p1Total} Benar\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `👤 *Pemain 2*: ${p2Name} (${p2Animal})\n` +
+    `   • Skor: ${Math.floor(p2Score).toLocaleString('id-ID')} Poin\n` +
+    `   • Jarak: ${Math.floor(p2Distance)}m\n` +
+    `   • Kuis: ${p2Correct}/${p2Total} Benar\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `⏰ *Waktu*: ${dateStr}\n` +
+    `Dikirim via Animal Subway Surfers Edukasi 🚀`
+  );
+}
+
+/**
  * Constructs the WhatsApp Web / App intent URL.
+ * Automatically formats Indonesian numbers: 08xxx or 8xxx -> 628xxx
  */
 export function buildWhatsAppUrl(phone: string | undefined, message: string): string {
   const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
   const encodedText = encodeURIComponent(message);
 
   if (cleanPhone) {
-    // If Indonesian phone starts with 08..., convert to 628...
     let finalPhone = cleanPhone;
     if (finalPhone.startsWith('0')) {
       finalPhone = '62' + finalPhone.slice(1);
+    } else if (finalPhone.startsWith('8')) {
+      finalPhone = '62' + finalPhone;
     }
     return `https://api.whatsapp.com/send?phone=${finalPhone}&text=${encodedText}`;
   }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { AnimalId, Question, QuizToken } from '../types/game.ts';
 import { ANIMALS } from '../game/animalsData.ts';
 import { SubwayRunnerEngine } from '../game/SubwayRunnerEngine.ts';
@@ -8,6 +8,7 @@ import { GameOverModal } from './GameOverModal.tsx';
 import { FullscreenButton } from './FullscreenButton.tsx';
 import { handleAnswerQuestion } from '../game/gameLogic.ts';
 import { useSoundManager } from '../hooks/useSoundManager.ts';
+import { randomizeQuizQuestions } from '../game/quizParser.ts';
 
 interface BattleRunnerViewProps {
   player1Name: string;
@@ -79,7 +80,16 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
 
   const p1AnimalObj = ANIMALS.find((a) => a.id === player1Animal)!;
   const p2AnimalObj = ANIMALS.find((a) => a.id === player2Animal)!;
-  const questions = token?.questions && token.questions.length > 0 ? token.questions : [];
+  // Acak soal dan jawaban saat battle untuk Player 1 dan Player 2
+  const p1Questions = useMemo(() => {
+    const raw = token?.questions && token.questions.length > 0 ? token.questions : [];
+    return randomizeQuizQuestions(raw);
+  }, [token]);
+
+  const p2Questions = useMemo(() => {
+    const raw = token?.questions && token.questions.length > 0 ? token.questions : [];
+    return randomizeQuizQuestions(raw);
+  }, [token]);
 
   // Check Game Over condition (when both die)
   useEffect(() => {
@@ -93,13 +103,13 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as unknown as { __testTriggerP1Question?: () => void }).__testTriggerP1Question = () => {
-        if (questions.length > 0) {
-          setP1ActiveQuestion(questions[0]);
+        if (p1Questions.length > 0) {
+          setP1ActiveQuestion(p1Questions[0]);
           playBonus();
         }
       };
     }
-  }, [questions, playBonus]);
+  }, [p1Questions, playBonus]);
 
   // Setup Engine for Player 1
   useEffect(() => {
@@ -111,7 +121,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       animalId: player1Animal,
       initialLives: 3,
       maxLives: 3, // exactly 3 lives in battle
-      questions,
+      questions: p1Questions,
       facingFront: false, // face forward down the track
       callbacks: {
         onHit: (newLives, dead) => {
@@ -145,7 +155,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       engine1.destroy();
       engine1Ref.current = null;
     };
-  }, [player1Animal, questions, playBGM, playHit, playBonus, playCoin]);
+  }, [player1Animal, p1Questions, playBGM, playHit, playBonus, playCoin]);
 
   // Setup Engine for Player 2
   useEffect(() => {
@@ -155,7 +165,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       animalId: player2Animal,
       initialLives: 3,
       maxLives: 3, // exactly 3 lives in battle
-      questions,
+      questions: p2Questions,
       facingFront: false, // face forward down the track
       callbacks: {
         onHit: (newLives, dead) => {
@@ -189,7 +199,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       engine2.destroy();
       engine2Ref.current = null;
     };
-  }, [player2Animal, questions, playHit, playBonus, playCoin]);
+  }, [player2Animal, p2Questions, playHit, playBonus, playCoin]);
 
   // Unified Keyboard Controls: P1 (WASD) and P2 (Arrow Keys)
   useEffect(() => {
@@ -335,6 +345,9 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
     setP2ActiveQuestion(null);
     setIsPaused(false);
 
+    const freshP1Questions = randomizeQuizQuestions(token?.questions && token.questions.length > 0 ? token.questions : []);
+    const freshP2Questions = randomizeQuizQuestions(token?.questions && token.questions.length > 0 ? token.questions : []);
+
     // Restart P1 Engine
     if (mount1Ref.current) {
       engine1Ref.current?.destroy();
@@ -342,7 +355,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         animalId: player1Animal,
         initialLives: 3,
         maxLives: 3,
-        questions,
+        questions: freshP1Questions,
         callbacks: {
           onHit: (newLives, dead) => {
             setP1Lives(newLives);
@@ -367,7 +380,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         animalId: player2Animal,
         initialLives: 3,
         maxLives: 3,
-        questions,
+        questions: freshP2Questions,
         callbacks: {
           onHit: (newLives, dead) => {
             setP2Lives(newLives);

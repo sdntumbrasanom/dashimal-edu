@@ -44,9 +44,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
     const found = getTokenByCode(trimmed);
     if (found) {
       setMatchedToken(found);
+      const waInfo = found.teacherPhone ? ` · 📱 WA Tujuan: ${found.teacherPhone}` : '';
       setTokenStatus({
         type: 'matched',
-        message: `Token Terverifikasi: "${found.title}" oleh ${found.teacherName} (${found.questions.length} soal)`,
+        message: `Token Terverifikasi: "${found.title}" oleh ${found.teacherName}${waInfo} (${found.questions.length} soal)`,
       });
     } else {
       // Allow custom token name
@@ -54,6 +55,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
         code: trimmed,
         title: `Kuis Token ${trimmed}`,
         teacherName: 'Guru Pengampu',
+        teacherPhone: activeTokens[0]?.teacherPhone,
         sheetUrl: '',
         questions: activeTokens[0]?.questions || [],
         createdAt: new Date().toISOString().split('T')[0],
@@ -68,9 +70,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
   const handleSelectQuickToken = (t: QuizToken) => {
     setTokenInput(t.code);
     setMatchedToken(t);
+    const waInfo = t.teacherPhone ? ` · 📱 WA Tujuan: ${t.teacherPhone}` : '';
     setTokenStatus({
       type: 'matched',
-      message: `Token Terverifikasi: "${t.title}" oleh ${t.teacherName} (${t.questions.length} soal)`,
+      message: `Token Terverifikasi: "${t.title}" oleh ${t.teacherName}${waInfo} (${t.questions.length} soal)`,
     });
   };
 
@@ -126,6 +129,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
         code: tokenInput.trim().toUpperCase() || (defaultToken ? defaultToken.code : 'LATIHAN'),
         title: defaultToken ? defaultToken.title : 'Kuis Latihan',
         teacherName: defaultToken ? defaultToken.teacherName : 'Bapak/Ibu Guru',
+        teacherPhone: defaultToken ? defaultToken.teacherPhone : undefined,
         sheetUrl: '',
         questions: defaultToken ? defaultToken.questions : [],
         createdAt: new Date().toISOString().split('T')[0],

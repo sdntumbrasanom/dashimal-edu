@@ -5,6 +5,7 @@ import {
   handleAnswerQuestion,
   calculateLiveScore,
   generateWhatsAppMessage,
+  generateBattleWhatsAppMessage,
   buildWhatsAppUrl,
 } from './gameLogic.ts';
 
@@ -100,6 +101,48 @@ test('generateWhatsAppMessage and buildWhatsAppUrl generate valid output', () =>
   const urlWithPhone = buildWhatsAppUrl('08123456789', msg);
   assert.ok(urlWithPhone.startsWith('https://api.whatsapp.com/send?phone=628123456789'));
 
+  // Test starting with 8...
+  const urlWith8 = buildWhatsAppUrl('85722228896', msg);
+  assert.ok(urlWith8.startsWith('https://api.whatsapp.com/send?phone=6285722228896'));
+
+  // Test with +62 formatted string
+  const urlWith62 = buildWhatsAppUrl('+62 812-3456-7890', msg);
+  assert.ok(urlWith62.startsWith('https://api.whatsapp.com/send?phone=6281234567890'));
+
   const urlNoPhone = buildWhatsAppUrl(undefined, msg);
   assert.ok(urlNoPhone.startsWith('https://api.whatsapp.com/send?text='));
 });
+
+test('generateBattleWhatsAppMessage formats battle summary correctly', () => {
+  const battleMsg = generateBattleWhatsAppMessage({
+    p1Name: 'Ahmad',
+    p1Animal: 'Kelinci',
+    p1Score: 1200,
+    p1Distance: 600,
+    p1Correct: 5,
+    p1Total: 5,
+    p2Name: 'Budi',
+    p2Animal: 'Harimau',
+    p2Score: 900,
+    p2Distance: 450,
+    p2Correct: 3,
+    p2Total: 5,
+    token: {
+      code: 'BAT-01',
+      title: 'Kuis IPA',
+      teacherName: 'Pak Wahyu',
+      teacherPhone: '081234567890',
+      sheetUrl: '',
+      questions: [],
+      createdAt: '2026-10-15',
+    },
+  });
+
+  assert.ok(battleMsg.includes('LAPORAN HASIL BATTLE 2 PEMAIN'));
+  assert.ok(battleMsg.includes('Pak Wahyu'));
+  assert.ok(battleMsg.includes('BAT-01'));
+  assert.ok(battleMsg.includes('Ahmad'));
+  assert.ok(battleMsg.includes('Budi'));
+  assert.ok(battleMsg.includes('👑 Pemenang: *Ahmad*'));
+});
+

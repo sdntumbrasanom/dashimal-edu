@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { AnimalId, Question, QuizToken } from '../types/game.ts';
 import { ANIMALS } from '../game/animalsData.ts';
 import { SubwayRunnerEngine } from '../game/SubwayRunnerEngine.ts';
@@ -8,6 +8,7 @@ import { GameOverModal } from './GameOverModal.tsx';
 import { FullscreenButton } from './FullscreenButton.tsx';
 import { handleAnswerQuestion } from '../game/gameLogic.ts';
 import { useSoundManager } from '../hooks/useSoundManager.ts';
+import { randomizeQuizQuestions } from '../game/quizParser.ts';
 
 interface SoloRunnerViewProps {
   playerName: string;
@@ -53,7 +54,11 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
   const [isGameOver, setIsGameOver] = useState(false);
 
   const animal = ANIMALS.find((a) => a.id === animalId)!;
-  const questions = token?.questions && token.questions.length > 0 ? token.questions : [];
+  // Acak urutan soal dan pilihan jawaban agar jawaban benar tidak di A terus
+  const questions = useMemo(() => {
+    const raw = token?.questions && token.questions.length > 0 ? token.questions : [];
+    return randomizeQuizQuestions(raw);
+  }, [token]);
 
   // Setup Three.js Engine
   useEffect(() => {
@@ -102,6 +107,17 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
       stopBGM();
     };
   }, [animalId, questions, playBGM, stopBGM, playHit, playGameOver, playBonus, playCoin]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __testTriggerSoloQuestion?: () => void }).__testTriggerSoloQuestion = () => {
+        if (questions.length > 0) {
+          setActiveQuestion(questions[0]);
+          playBonus();
+        }
+      };
+    }
+  }, [questions, playBonus]);
 
   // Keyboard controls
   useEffect(() => {
@@ -248,13 +264,15 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
     setActiveQuestion(null);
     setIsPaused(false);
 
+    const freshQuestions = randomizeQuizQuestions(token?.questions && token.questions.length > 0 ? token.questions : []);
+
     if (mountRef.current) {
       engineRef.current?.destroy();
       const engine = new SubwayRunnerEngine(mountRef.current, {
         animalId,
         initialLives: 3,
         maxLives: 5,
-        questions,
+        questions: freshQuestions,
         callbacks: {
           onHit: (newLives, dead) => {
             setLives(newLives);

@@ -142,3 +142,40 @@ export function parseQuestionsCsv(csvText: string): Question[] {
 
   return questions;
 }
+
+/**
+ * Shuffles only the answer options of a single question while keeping correctAnswer intact.
+ */
+export function shuffleQuestionOptions(question: Question): Question {
+  if (!question || !question.options || question.options.length <= 1) {
+    return question;
+  }
+  return {
+    ...question,
+    options: shuffleArray(question.options),
+  };
+}
+
+/**
+ * Randomizes the order of questions AND randomizes the order of answer options
+ * for each question so that the correct answer is randomly distributed across
+ * all positions (A, B, C, D) and not locked to position A.
+ */
+export function randomizeQuizQuestions(questions: Question[]): Question[] {
+  if (!questions || questions.length === 0) return [];
+
+  // 1. Acak urutan soal (Shuffle questions order)
+  const shuffledQuestions = shuffleArray(questions);
+
+  // 2. Acak urutan pilihan jawaban untuk setiap soal (Shuffle answers options)
+  return shuffledQuestions.map((q) => {
+    const rawOptions = Array.isArray(q.options) && q.options.length > 0 ? q.options : [q.correctAnswer];
+    // Pastikan kunci jawaban ada dalam opsi
+    const opts = rawOptions.includes(q.correctAnswer) ? [...rawOptions] : [...rawOptions, q.correctAnswer];
+    return {
+      ...q,
+      options: shuffleArray(opts),
+    };
+  });
+}
+

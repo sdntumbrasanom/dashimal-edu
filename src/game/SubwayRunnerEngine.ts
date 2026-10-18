@@ -13,6 +13,7 @@ import {
   playHitSound,
   playQuestionBonusSound,
 } from '../utils/sound.ts';
+import { shuffleArray } from './quizParser.ts';
 
 export interface RunnerCallbacks {
   onHit: (newLives: number, isDead: boolean) => void;
@@ -533,8 +534,16 @@ export class SubwayRunnerEngine {
     playQuestionBonusSound();
     if (this.config.questions.length === 0) return;
 
-    const q = this.config.questions[this.questionIndex % this.config.questions.length];
+    const rawQ = this.config.questions[this.questionIndex % this.config.questions.length];
     this.questionIndex++;
+
+    // Freshly shuffle options so the correct answer is randomized across all positions (A, B, C, D)
+    const rawOptions = rawQ.options && rawQ.options.length > 0 ? rawQ.options : [rawQ.correctAnswer];
+    const optsWithCorrect = rawOptions.includes(rawQ.correctAnswer) ? [...rawOptions] : [...rawOptions, rawQ.correctAnswer];
+    const q: Question = {
+      ...rawQ,
+      options: shuffleArray(optsWithCorrect),
+    };
 
     this.pause();
     this.config.callbacks.onQuestionTrigger(q);

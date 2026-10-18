@@ -4,6 +4,7 @@ import {
   getAllTokens,
   saveToken,
   deleteToken,
+  updateTokenPhone,
   DEFAULT_TOKENS,
 } from '../utils/tokenStore.ts';
 import {
@@ -41,6 +42,10 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchMessage, setFetchMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [savedSuccessToken, setSavedSuccessToken] = useState<string | null>(null);
+
+  // Editing existing token WhatsApp number
+  const [editingPhoneCode, setEditingPhoneCode] = useState<string | null>(null);
+  const [editingPhoneValue, setEditingPhoneValue] = useState<string>('');
 
   // Authentication check
   const handleLogin = (e: React.FormEvent) => {
@@ -171,10 +176,17 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
     // Reset form
     setTitle('');
     setTeacherName('');
+    setTeacherPhone('');
     setSheetUrl('');
     setCsvDirectInput('');
     setCustomTokenCode('');
     setPreviewQuestions([]);
+  };
+
+  const handleSaveEditPhone = (code: string) => {
+    updateTokenPhone(code, editingPhoneValue);
+    setTokens(getAllTokens());
+    setEditingPhoneCode(null);
   };
 
   const handleDelete = (code: string) => {
@@ -489,16 +501,25 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      No. WhatsApp Guru (Opsional)
+                    <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span>📱</span>
+                        <span>No. WhatsApp Guru (Tujuan Kirim Hasil Siswa)</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                        Tujuan Siswa
+                      </span>
                     </label>
                     <input
                       type="tel"
                       value={teacherPhone}
                       onChange={(e) => setTeacherPhone(e.target.value)}
-                      placeholder="081234567890"
+                      placeholder="Contoh: 081234567890 / 085722228896"
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500"
                     />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Nomor ini menjadi tujuan pengiriman laporan skor & kuis murid langsung via WhatsApp saat selesai bermain kuis.
+                    </p>
                   </div>
                 </div>
 
@@ -584,6 +605,58 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
                     <div className="font-bold text-sm text-slate-100">{token.title}</div>
                     <div className="text-xs text-slate-400 mt-0.5">
                       Guru: <span className="text-slate-300">{token.teacherName}</span>
+                    </div>
+
+                    {/* WhatsApp Destination Badge & Quick Editor */}
+                    <div className="mt-2 p-2 bg-slate-900/90 rounded-lg border border-slate-700/60">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-emerald-400 shrink-0">📱</span>
+                          <span className="text-[11px] text-slate-400 shrink-0">WA Tujuan:</span>
+                          <span className="font-mono font-bold text-emerald-400 truncate">
+                            {token.teacherPhone || (
+                              <span className="text-amber-400 font-normal italic">Belum diatur</span>
+                            )}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingPhoneCode(token.code);
+                            setEditingPhoneValue(token.teacherPhone || '');
+                          }}
+                          className="text-[11px] text-blue-400 hover:text-blue-300 underline cursor-pointer shrink-0 ml-2 font-medium"
+                        >
+                          {token.teacherPhone ? 'Ubah WA' : '+ Setel WA'}
+                        </button>
+                      </div>
+
+                      {editingPhoneCode === token.code && (
+                        <div className="mt-2 pt-2 border-t border-slate-800 flex items-center gap-1.5">
+                          <input
+                            type="tel"
+                            value={editingPhoneValue}
+                            onChange={(e) => setEditingPhoneValue(e.target.value)}
+                            placeholder="081234567890"
+                            className="flex-1 bg-slate-800 text-xs px-2.5 py-1.5 rounded-lg text-white border border-slate-700 focus:outline-none focus:border-blue-400 font-mono"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditPhone(token.code)}
+                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Simpan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingPhoneCode(null)}
+                            className="px-2 py-1.5 bg-slate-700 text-slate-300 text-[11px] rounded-lg cursor-pointer"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-700/50 text-[11px] text-slate-400">
