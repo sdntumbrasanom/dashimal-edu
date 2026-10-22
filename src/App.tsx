@@ -6,8 +6,17 @@ import { LobbyScreen } from './components/LobbyScreen.tsx';
 import { CharacterSelect } from './components/CharacterSelect.tsx';
 import { SoloRunnerView } from './components/SoloRunnerView.tsx';
 import { BattleRunnerView } from './components/BattleRunnerView.tsx';
-import { TeacherPortal } from './components/TeacherPortal.tsx';
-import { getAllTokens } from './utils/tokenStore.ts';
+import { TeacherPortal, MANUAL_APPS_SCRIPT_URL } from './components/TeacherPortal.tsx';
+import {
+  getAllTokens,
+  syncAllTokensFromOnline,
+  setManualAppsScriptUrl,
+} from './utils/tokenStore.ts';
+
+// Terapkan URL Apps Script manual saat aplikasi dimuat
+if (typeof window !== 'undefined' && MANUAL_APPS_SCRIPT_URL && MANUAL_APPS_SCRIPT_URL.trim()) {
+  setManualAppsScriptUrl(MANUAL_APPS_SCRIPT_URL.trim());
+}
 
 export default function App() {
   const [currentView, setCurrentView] = useState<GameView>('title');
@@ -20,12 +29,22 @@ export default function App() {
   const [player2Animal, setPlayer2Animal] = useState<AnimalId>('harimau');
   const [activeToken, setActiveToken] = useState<QuizToken | null>(null);
 
-  // Initialize with default token if available
+  // Initialize with default token and sync from online Google Spreadsheet database
   useEffect(() => {
     const tokens = getAllTokens();
     if (tokens.length > 0) {
       setActiveToken(tokens[0]);
     }
+
+    // Background sync from Google Spreadsheet Apps Script database
+    syncAllTokensFromOnline()
+      .then((synced) => {
+        if (synced && synced.length > 0) {
+          // If no active token yet or matches default, sync
+          setActiveToken((prev) => prev || synced[0]);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Sync state to body attribute for accessibility & automated tests

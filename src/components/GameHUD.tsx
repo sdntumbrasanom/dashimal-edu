@@ -1,6 +1,7 @@
 import React from 'react';
 import { getMuted, setMuted } from '../utils/sound.ts';
 import { FullscreenButton } from './FullscreenButton.tsx';
+import { SoundToggleButton } from './SoundToggleButton.tsx';
 
 interface GameHUDProps {
   playerName: string;
@@ -43,14 +44,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   isBattle = false,
   playerSide = 'left',
 }) => {
-  const [isMutedState, setIsMutedState] = React.useState(getMuted());
-
-  const toggleSound = () => {
-    const next = !isMutedState;
-    setMuted(next);
-    setIsMutedState(next);
-  };
-
   return (
     <div className="absolute inset-0 pointer-events-none z-30 flex flex-col justify-between p-3 sm:p-5 select-none">
       {/* Top Bar Status */}
@@ -85,22 +78,25 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
         {/* Center / Right Metrics: Score & Coins */}
         <div className="flex items-center gap-2">
-          {/* Score & Distance cluster */}
+          {/* Score & Metrics cluster */}
           <div className="bg-slate-900/85 border border-slate-700/80 rounded-2xl px-3.5 py-2 shadow-lg text-right">
             <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-              SKOR
+              SKOR PENILAIAN
             </div>
             <div className="text-lg sm:text-xl font-black font-mono text-white tabular-nums leading-none">
               {Math.floor(score).toLocaleString('id-ID')}
             </div>
             <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-              {Math.floor(distance)}m · 🪙 {coins}
+              🪙 {coins} · 📝 {questionsCorrect}/{questionsTotal} · {Math.floor(distance)}m
             </div>
           </div>
 
-          {/* Utility Buttons: Fullscreen, View Toggle, Mute & Pause */}
+          {/* Utility Buttons: Sound Toggle, Fullscreen, View Toggle, Pause */}
           {(!isBattle || playerSide === 'left') && (
             <div className="flex items-center gap-1.5 pointer-events-auto">
+              {/* Sound Toggle Button (ON/OFF) */}
+              <SoundToggleButton variant="hud" />
+
               <FullscreenButton variant="hud" />
 
               {onToggleView && (
@@ -118,15 +114,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               )}
 
               <button
-                onClick={toggleSound}
-                className="w-9 h-9 rounded-xl bg-slate-900/85 hover:bg-slate-800 border border-slate-700 text-sm flex items-center justify-center transition-colors cursor-pointer"
-                title={isMutedState ? 'Bunyikan Audio' : 'Bisukan Audio'}
-                aria-label={isMutedState ? 'Bunyikan Audio' : 'Bisukan Audio'}
-              >
-                {isMutedState ? '🔇' : '🔊'}
-              </button>
-
-              <button
                 onClick={onPause}
                 className="w-9 h-9 rounded-xl bg-slate-900/85 hover:bg-slate-800 border border-slate-700 text-sm flex items-center justify-center transition-colors cursor-pointer text-slate-200"
                 title="Pause Game (P / Esc)"
@@ -141,8 +128,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
       {/* Quiz Progress Pill */}
       {questionsTotal > 0 && (
-        <div className="self-center bg-purple-950/80 border border-purple-500/40 rounded-full px-3 py-1 shadow-md text-xs text-purple-200 pointer-events-none">
-          🎁 Kuis: <strong className="text-amber-300">{questionsCorrect}</strong> / {questionsTotal} Benar
+        <div className="self-center bg-purple-950/85 border border-purple-500/50 rounded-full px-3 py-1 shadow-md text-xs text-purple-200 pointer-events-none flex items-center gap-1.5 backdrop-blur-sm">
+          <span>🎁 Kuis:</span>
+          <strong className="text-emerald-300">{questionsCorrect}/{questionsTotal} Benar</strong>
+          <span className="text-purple-300">({Math.round((questionsCorrect / questionsTotal) * 100)}%)</span>
         </div>
       )}
 

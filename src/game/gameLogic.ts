@@ -63,10 +63,52 @@ export function handleAnswerQuestion(params: {
 }
 
 /**
- * Calculates score from distance and coins.
+ * Menghitung Skor Penilaian Permainan berdasarkan:
+ * 1. Jumlah soal benar / soal yang sudah dijawab (100 poin per soal benar)
+ * 2. Jumlah koin yang didapat (10 poin per koin)
+ * Jarak lari (meter) tetap dicatat sebagai metrik performa atletik lari.
  */
-export function calculateLiveScore(distanceMeters: number, coins: number, bonusQuizScore: number): number {
-  return Math.floor(distanceMeters) + coins * 10 + bonusQuizScore;
+export function calculateLiveScore(coins: number, questionsCorrect: number): number {
+  return questionsCorrect * 100 + coins * 10;
+}
+
+/**
+ * Rincian evaluasi skor penilaian edukatif
+ */
+export function calculateEvaluationScore(
+  questionsCorrect: number,
+  questionsTotal: number,
+  coins: number
+): {
+  totalScore: number;
+  quizScore: number;
+  coinsScore: number;
+  accuracy: number;
+  grade: string;
+} {
+  const quizScore = questionsCorrect * 100;
+  const coinsScore = coins * 10;
+  const totalScore = quizScore + coinsScore;
+  const accuracy = questionsTotal > 0 ? Math.round((questionsCorrect / questionsTotal) * 100) : 0;
+
+  let grade = '-';
+  if (questionsTotal > 0) {
+    if (accuracy >= 90) grade = 'A+ (Istimewa)';
+    else if (accuracy >= 80) grade = 'A (Sangat Baik)';
+    else if (accuracy >= 70) grade = 'B (Baik)';
+    else if (accuracy >= 60) grade = 'C (Cukup)';
+    else grade = 'D (Perlu Bimbingan)';
+  } else if (coins > 0) {
+    grade = 'Latihan';
+  }
+
+  return {
+    totalScore,
+    quizScore,
+    coinsScore,
+    accuracy,
+    grade,
+  };
 }
 
 /**
@@ -105,8 +147,11 @@ export function generateWhatsAppMessage(params: {
     minute: '2-digit',
   });
 
-  const accuracy =
-    questionsTotal > 0 ? Math.round((questionsCorrect / questionsTotal) * 100) : 0;
+  const evalStats = calculateEvaluationScore(questionsCorrect, questionsTotal, coins);
+  const quizPoints = evalStats.quizScore;
+  const coinPoints = evalStats.coinsScore;
+  const accuracy = evalStats.accuracy;
+  const grade = evalStats.grade;
 
   const tokenInfo = token
     ? `🔑 *Kode Soal*: ${token.code} (${token.title})\n👨‍🏫 *Guru*: ${token.teacherName || 'Bapak/Ibu Guru'}`
@@ -119,9 +164,11 @@ export function generateWhatsAppMessage(params: {
     `🐾 *Karakter Hewan*: ${animalName}\n` +
     `${tokenInfo}\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🏆 *Total Skor*: ${score.toLocaleString('id-ID')} Poin\n` +
+    `🏆 *Total Skor Penilaian*: ${score.toLocaleString('id-ID')} Poin\n` +
+    `   • 📝 Poin Kuis: ${quizPoints} Poin (${questionsCorrect}/${questionsTotal} Soal Benar · Akurasi ${accuracy}%)\n` +
+    `   • 🪙 Poin Koin: ${coinPoints} Poin (${coins} koin didapat)\n` +
+    `🎯 *Predikat Nilai*: ${grade}\n` +
     `📏 *Jarak Lari*: ${Math.floor(distance)} meter\n` +
-    `🪙 *Koin Terkumpul*: ${coins} koin\n` +
     `❤️ *Sisa Nyawa*: ${livesRemaining} nyawa\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `📝 *Hasil Kuis*: ${questionsCorrect} dari ${questionsTotal} Soal Benar (${accuracy}%)\n` +
@@ -141,12 +188,14 @@ export function generateBattleWhatsAppMessage(params: {
   p1Distance: number;
   p1Correct: number;
   p1Total: number;
+  p1Coins?: number;
   p2Name: string;
   p2Animal: string;
   p2Score: number;
   p2Distance: number;
   p2Correct: number;
   p2Total: number;
+  p2Coins?: number;
   token?: QuizToken | null;
 }): string {
   const {
@@ -156,12 +205,14 @@ export function generateBattleWhatsAppMessage(params: {
     p1Distance,
     p1Correct,
     p1Total,
+    p1Coins = 0,
     p2Name,
     p2Animal,
     p2Score,
     p2Distance,
     p2Correct,
     p2Total,
+    p2Coins = 0,
     token,
   } = params;
 
@@ -174,6 +225,9 @@ export function generateBattleWhatsAppMessage(params: {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const p1Eval = calculateEvaluationScore(p1Correct, p1Total, p1Coins);
+  const p2Eval = calculateEvaluationScore(p2Correct, p2Total, p2Coins);
 
   const winnerStr =
     p1Score > p2Score
@@ -193,14 +247,18 @@ export function generateBattleWhatsAppMessage(params: {
     `🏆 ${winnerStr}\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `👤 *Pemain 1*: ${p1Name} (${p1Animal})\n` +
-    `   • Skor: ${Math.floor(p1Score).toLocaleString('id-ID')} Poin\n` +
-    `   • Jarak: ${Math.floor(p1Distance)}m\n` +
-    `   • Kuis: ${p1Correct}/${p1Total} Benar\n` +
+    `   • Skor Penilaian: ${Math.floor(p1Score).toLocaleString('id-ID')} Poin\n` +
+    `   • Kuis: ${p1Correct}/${p1Total} Soal Benar (+${p1Eval.quizScore} Poin · Akurasi ${p1Eval.accuracy}%)\n` +
+    `   • Koin: ${p1Coins} Koin (+${p1Eval.coinsScore} Poin)\n` +
+    `   • Predikat: ${p1Eval.grade}\n` +
+    `   • Jarak Lari: ${Math.floor(p1Distance)}m\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `👤 *Pemain 2*: ${p2Name} (${p2Animal})\n` +
-    `   • Skor: ${Math.floor(p2Score).toLocaleString('id-ID')} Poin\n` +
-    `   • Jarak: ${Math.floor(p2Distance)}m\n` +
-    `   • Kuis: ${p2Correct}/${p2Total} Benar\n` +
+    `   • Skor Penilaian: ${Math.floor(p2Score).toLocaleString('id-ID')} Poin\n` +
+    `   • Kuis: ${p2Correct}/${p2Total} Soal Benar (+${p2Eval.quizScore} Poin · Akurasi ${p2Eval.accuracy}%)\n` +
+    `   • Koin: ${p2Coins} Koin (+${p2Eval.coinsScore} Poin)\n` +
+    `   • Predikat: ${p2Eval.grade}\n` +
+    `   • Jarak Lari: ${Math.floor(p2Distance)}m\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `⏰ *Waktu*: ${dateStr}\n` +
     `Dikirim via Animal Subway Surfers Edukasi 🚀`

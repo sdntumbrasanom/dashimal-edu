@@ -5,6 +5,7 @@ import {
   generateWhatsAppMessage,
   generateBattleWhatsAppMessage,
   buildWhatsAppUrl,
+  calculateEvaluationScore,
 } from '../game/gameLogic.ts';
 import { playGameOverSound } from '../utils/sound.ts';
 import confetti from 'canvas-confetti';
@@ -62,9 +63,23 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   const p1Animal = ANIMALS.find((a) => a.id === p1Stats.animalId)!;
   const p2Animal = p2Stats ? ANIMALS.find((a) => a.id === p2Stats.animalId) : null;
 
-  // Determine winner for battle
-  const p1Wins = p2Stats ? p1Stats.score >= p2Stats.score : false;
-  const isDraw = p2Stats ? p1Stats.score === p2Stats.score : false;
+  // Evaluasi skor penilaian berdasarkan soal benar / soal dijawab dan koin yang didapat
+  const p1Eval = calculateEvaluationScore(
+    p1Stats.questionsCorrect,
+    p1Stats.questionsTotal,
+    p1Stats.coins
+  );
+  const p2Eval = p2Stats
+    ? calculateEvaluationScore(
+        p2Stats.questionsCorrect,
+        p2Stats.questionsTotal,
+        p2Stats.coins
+      )
+    : null;
+
+  // Determine winner for battle based on evaluation score
+  const p1Wins = p2Eval ? p1Eval.totalScore >= p2Eval.totalScore : false;
+  const isDraw = p2Eval ? p1Eval.totalScore === p2Eval.totalScore : false;
 
   const effectivePhone = customPhone.trim() || token?.teacherPhone || '';
 
@@ -72,7 +87,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   const soloMsg = generateWhatsAppMessage({
     playerName: p1Stats.name,
     token,
-    score: p1Stats.score,
+    score: p1Eval.totalScore,
     distance: p1Stats.distance,
     coins: p1Stats.coins,
     questionsTotal: p1Stats.questionsTotal,
@@ -84,27 +99,26 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 
   // Battle WhatsApp message & url
   const battleMsg =
-    p2Stats && p2Animal
+    p2Stats && p2Animal && p2Eval
       ? generateBattleWhatsAppMessage({
           p1Name: p1Stats.name,
           p1Animal: p1Animal?.name || 'P1',
-          p1Score: p1Stats.score,
+          p1Score: p1Eval.totalScore,
           p1Distance: p1Stats.distance,
           p1Correct: p1Stats.questionsCorrect,
           p1Total: p1Stats.questionsTotal,
+          p1Coins: p1Stats.coins,
           p2Name: p2Stats.name,
           p2Animal: p2Animal?.name || 'P2',
-          p2Score: p2Stats.score,
+          p2Score: p2Eval.totalScore,
           p2Distance: p2Stats.distance,
           p2Correct: p2Stats.questionsCorrect,
           p2Total: p2Stats.questionsTotal,
+          p2Coins: p2Stats.coins,
           token,
         })
       : '';
   const battleWhatsAppUrl = buildWhatsAppUrl(effectivePhone, battleMsg);
-
-
-
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 animate-fadeIn overflow-y-auto">
@@ -123,59 +137,95 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-1">
             {mode === 'battle'
-              ? 'Pertarungan sengit telah usai! Skor kuis & jarak lari menentukan pemenang.'
-              : 'Nyawa telah habis saat menabrak rintangan. Kerja bagus, terus berlatih!'}
+              ? 'Pertarungan telah usai! Skor penilaian dari soal benar & koin menentukan juara.'
+              : 'Skor penilaian akhir dihitung dari jumlah soal benar / soal dijawab dan koin!'}
           </p>
         </div>
 
         {/* Solo Stats Card */}
         {mode === 'solo' && (
           <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 sm:p-5 mb-6 space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-700/60">
-              <span className="text-3xl bg-slate-900 w-12 h-12 rounded-xl flex items-center justify-center border border-slate-700">
-                {p1Animal.emoji}
-              </span>
-              <div>
-                <div className="font-black text-lg text-white">{p1Stats.name}</div>
-                <div className="text-xs text-amber-400">{p1Animal.name}</div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-700/60">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl bg-slate-900 w-12 h-12 rounded-xl flex items-center justify-center border border-slate-700">
+                  {p1Animal.emoji}
+                </span>
+                <div>
+                  <div className="font-black text-lg text-white">{p1Stats.name}</div>
+                  <div className="text-xs text-amber-400">{p1Animal.name}</div>
+                </div>
+              </div>
+
+              {/* Predikat Edukasi Badge */}
+              <div className="text-right">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Predikat Nilai</div>
+                <div className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-black">
+                  {p1Eval.grade}
+                </div>
               </div>
             </div>
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-                <div className="text-[10px] text-slate-400 font-bold uppercase">Total Skor</div>
+              <div className="bg-slate-900/80 p-2.5 rounded-xl border border-amber-500/40">
+                <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Skor Penilaian</div>
                 <div className="text-xl font-black text-amber-300 font-mono mt-0.5">
-                  {Math.floor(p1Stats.score).toLocaleString('id-ID')}
+                  {p1Eval.totalScore.toLocaleString('id-ID')}
+                </div>
+                <div className="text-[10px] text-amber-400/80">Total Poin</div>
+              </div>
+
+              <div className="bg-slate-900/80 p-2.5 rounded-xl border border-emerald-500/30">
+                <div className="text-[10px] text-emerald-400 font-bold uppercase">Soal Benar</div>
+                <div className="text-lg font-black text-emerald-300 font-mono mt-0.5">
+                  {p1Stats.questionsCorrect}/{p1Stats.questionsTotal}
+                </div>
+                <div className="text-[10px] text-emerald-400">
+                  +{p1Eval.quizScore} poin ({p1Eval.accuracy}%)
+                </div>
+              </div>
+
+              <div className="bg-slate-900/80 p-2.5 rounded-xl border border-yellow-500/30">
+                <div className="text-[10px] text-yellow-400 font-bold uppercase">Koin Didapat</div>
+                <div className="text-lg font-black text-yellow-300 font-mono mt-0.5">
+                  🪙 {p1Stats.coins}
+                </div>
+                <div className="text-[10px] text-yellow-400">
+                  +{p1Eval.coinsScore} poin
                 </div>
               </div>
 
               <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
                 <div className="text-[10px] text-slate-400 font-bold uppercase">Jarak Lari</div>
-                <div className="text-xl font-black text-white font-mono mt-0.5">
+                <div className="text-lg font-black text-white font-mono mt-0.5">
                   {Math.floor(p1Stats.distance)}m
                 </div>
-              </div>
-
-              <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-                <div className="text-[10px] text-slate-400 font-bold uppercase">Koin</div>
-                <div className="text-xl font-black text-yellow-400 font-mono mt-0.5">
-                  🪙 {p1Stats.coins}
+                <div className="text-[10px] text-slate-500">
+                  lintasan rel
                 </div>
               </div>
+            </div>
 
-              <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-                <div className="text-[10px] text-slate-400 font-bold uppercase">Soal Benar</div>
-                <div className="text-xl font-black text-emerald-400 font-mono mt-0.5">
-                  {p1Stats.questionsCorrect}/{p1Stats.questionsTotal}
-                </div>
+            {/* Formula & Breakdown Note */}
+            <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-700/60 text-xs text-slate-300 space-y-1.5">
+              <div className="flex items-center justify-between font-medium">
+                <span>📝 Nilai Kuis ({p1Stats.questionsCorrect} dari {p1Stats.questionsTotal} soal terjawab):</span>
+                <span className="font-mono text-emerald-300 font-bold">+{p1Eval.quizScore} Poin</span>
+              </div>
+              <div className="flex items-center justify-between font-medium">
+                <span>🪙 Perolehan Koin ({p1Stats.coins} koin × 10):</span>
+                <span className="font-mono text-yellow-300 font-bold">+{p1Eval.coinsScore} Poin</span>
+              </div>
+              <div className="pt-1.5 border-t border-slate-700/50 flex items-center justify-between font-bold text-amber-300 text-xs sm:text-sm">
+                <span>🏆 Total Skor Penilaian:</span>
+                <span className="font-mono">{p1Eval.totalScore.toLocaleString('id-ID')} Poin</span>
               </div>
             </div>
           </div>
         )}
 
         {/* Battle Stats Comparison */}
-        {mode === 'battle' && p2Stats && p2Animal && (
+        {mode === 'battle' && p2Stats && p2Animal && p2Eval && (
           <div className="space-y-3 mb-6">
             {/* P1 Row */}
             <div
@@ -197,17 +247,17 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-slate-400">Skor</div>
+                  <div className="text-xs text-amber-400 font-bold">Skor Penilaian</div>
                   <div className="text-lg font-black font-mono text-amber-300">
-                    {Math.floor(p1Stats.score).toLocaleString('id-ID')}
+                    {p1Eval.totalScore.toLocaleString('id-ID')}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-300 pt-2 border-t border-slate-700/40">
-                <span>Jarak: {Math.floor(p1Stats.distance)}m · Koin: {p1Stats.coins}</span>
-                <span className="text-purple-300">
-                  Kuis: {p1Stats.questionsCorrect}/{p1Stats.questionsTotal} Benar
-                </span>
+              <div className="flex flex-wrap items-center justify-between text-xs text-slate-300 pt-2 border-t border-slate-700/40 gap-1">
+                <span>📝 Kuis: <strong>{p1Stats.questionsCorrect}/{p1Stats.questionsTotal}</strong> (+{p1Eval.quizScore} Poin · {p1Eval.accuracy}%)</span>
+                <span>🪙 Koin: <strong>{p1Stats.coins}</strong> (+{p1Eval.coinsScore} Poin)</span>
+                <span className="text-slate-400">Jarak: {Math.floor(p1Stats.distance)}m</span>
+                <span className="text-emerald-400 font-bold text-[11px]">{p1Eval.grade}</span>
               </div>
             </div>
 
@@ -231,18 +281,23 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-slate-400">Skor</div>
+                  <div className="text-xs text-purple-400 font-bold">Skor Penilaian</div>
                   <div className="text-lg font-black font-mono text-purple-300">
-                    {Math.floor(p2Stats.score).toLocaleString('id-ID')}
+                    {p2Eval.totalScore.toLocaleString('id-ID')}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-300 pt-2 border-t border-slate-700/40">
-                <span>Jarak: {Math.floor(p2Stats.distance)}m · Koin: {p2Stats.coins}</span>
-                <span className="text-purple-300">
-                  Kuis: {p2Stats.questionsCorrect}/{p2Stats.questionsTotal} Benar
-                </span>
+              <div className="flex flex-wrap items-center justify-between text-xs text-slate-300 pt-2 border-t border-slate-700/40 gap-1">
+                <span>📝 Kuis: <strong>{p2Stats.questionsCorrect}/{p2Stats.questionsTotal}</strong> (+{p2Eval.quizScore} Poin · {p2Eval.accuracy}%)</span>
+                <span>🪙 Koin: <strong>{p2Stats.coins}</strong> (+{p2Eval.coinsScore} Poin)</span>
+                <span className="text-slate-400">Jarak: {Math.floor(p2Stats.distance)}m</span>
+                <span className="text-purple-300 font-bold text-[11px]">{p2Eval.grade}</span>
               </div>
+            </div>
+
+            {/* Battle Formula Reminder */}
+            <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-700/50 text-center text-[11px] text-slate-300">
+              💡 Skor Penilaian dihitung dari: <strong>(Soal Benar × 100 Poin)</strong> + <strong>(Koin Didapat × 10 Poin)</strong>
             </div>
           </div>
         )}

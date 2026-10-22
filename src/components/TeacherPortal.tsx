@@ -4,7 +4,11 @@ import {
   getAllTokens,
   saveToken,
   deleteToken,
+  deleteTokenOnline,
+  saveTokenOnline,
   updateTokenPhone,
+  setManualAppsScriptUrl,
+  syncAllTokensFromOnline,
   DEFAULT_TOKENS,
 } from '../utils/tokenStore.ts';
 import {
@@ -12,13 +16,25 @@ import {
   parseQuestionsCsv,
 } from '../game/quizParser.ts';
 import { FullscreenButton } from './FullscreenButton.tsx';
+import { SoundToggleButton } from './SoundToggleButton.tsx';
 
-// --- TAMBAHAN BARU: URL template Google Spreadsheet kosong ---
+// =====================================================================================
+// 🔗 URL GOOGLE APPS SCRIPT DATABASE MANUAL (MASUKKAN URL ANDA DI SINI)
+// Tempelkan URL Web App (/exec) dari Google Apps Script Anda langsung di dalam tanda kutip:
+// Contoh: 'https://script.google.com/macros/s/AKfycbyxxxxxx/exec'
+// =====================================================================================
+export const MANUAL_APPS_SCRIPT_URL: string = 'https://script.google.com/macros/s/AKfycbxRDLrJj7IlvD--shNKS0FO9Zwo7du8Tm5c_AxXT6EBy7L_H4z4Pu-YplyYFlGjdeDadA/exec';
+
+// Terapkan otomatis ke engine database aplikasi saat file ini dimuat
+if (typeof window !== 'undefined' && MANUAL_APPS_SCRIPT_URL.trim()) {
+  setManualAppsScriptUrl(MANUAL_APPS_SCRIPT_URL.trim());
+}
+
+// --- URL template Google Spreadsheet kosong ---
 // Ganti ID_SPREADSHEET_ANDA dengan ID spreadsheet template milik Anda.
 // Format URL WAJIB berakhiran /template/preview
 const BLANK_SPREADSHEET_TEMPLATE_URL =
   'https://docs.google.com/spreadsheets/d/10YdkL93c9iIFD8QxY4o1wkyEBy8aVcPSvzvCAFXeFzs/template/preview';
-// --- AKHIR TAMBAHAN BARU ---
 
 interface TeacherPortalProps {
   onBack: () => void;
@@ -42,6 +58,11 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchMessage, setFetchMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [savedSuccessToken, setSavedSuccessToken] = useState<string | null>(null);
+
+  // Sync state & messages
+  const [isSyncingTokens, setIsSyncingTokens] = useState(false);
+  const [isSavingToken, setIsSavingToken] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Editing existing token WhatsApp number
   const [editingPhoneCode, setEditingPhoneCode] = useState<string | null>(null);
@@ -151,7 +172,28 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
     }
   };
 
-  const handleSaveToken = (e: React.FormEvent) => {
+  const handleSyncFromSpreadsheet = async () => {
+    setIsSyncingTokens(true);
+    setSyncMessage(null);
+    try {
+      const synced = await syncAllTokensFromOnline();
+      setTokens(synced);
+      setSyncMessage({
+        type: 'success',
+        text: `✔ Berhasil menyinkronkan ${synced.length} paket soal dari database online!`,
+      });
+      setTimeout(() => setSyncMessage(null), 5000);
+    } catch {
+      setSyncMessage({
+        type: 'error',
+        text: 'Gagal menyinkronkan dari database online. Periksa koneksi internet Anda.',
+      });
+    } finally {
+      setIsSyncingTokens(false);
+    }
+  };
+
+  const handleSaveToken = async (e: React.FormEvent) => {
     e.preventDefault();
     if (previewQuestions.length === 0) {
       setFetchMessage({ type: 'error', text: 'Harap ambil atau masukkan soal terlebih dahulu sebelum menyimpan!' });
@@ -169,18 +211,28 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
       createdAt: new Date().toISOString().split('T')[0],
     };
 
-    saveToken(newToken);
-    setTokens(getAllTokens());
-    setSavedSuccessToken(code);
+    setIsSavingToken(true);
+    try {
+      const result = await saveTokenOnline(newToken);
+      setTokens(getAllTokens());
+      setSavedSuccessToken(code);
 
-    // Reset form
-    setTitle('');
-    setTeacherName('');
-    setTeacherPhone('');
-    setSheetUrl('');
-    setCsvDirectInput('');
-    setCustomTokenCode('');
-    setPreviewQuestions([]);
+      setFetchMessage({
+        type: 'success',
+        text: result.message || `Token "${code}" berhasil disimpan!`,
+      });
+
+      // Reset form
+      setTitle('');
+      setTeacherName('');
+      setTeacherPhone('');
+      setSheetUrl('');
+      setCsvDirectInput('');
+      setCustomTokenCode('');
+      setPreviewQuestions([]);
+    } finally {
+      setIsSavingToken(false);
+    }
   };
 
   const handleSaveEditPhone = (code: string) => {
@@ -189,9 +241,9 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
     setEditingPhoneCode(null);
   };
 
-  const handleDelete = (code: string) => {
-    if (confirm(`Hapus token "${code}"?`)) {
-      deleteToken(code);
+  const handleDelete = async (code: string) => {
+    if (confirm(`Hapus token "${code}" dari memori perangkat dan spreadsheet online?`)) {
+      await deleteTokenOnline(code);
       setTokens(getAllTokens());
     }
   };
@@ -290,7 +342,8 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
               Tambahkan link Google Spreadsheet untuk membuat token soal bagi para pemain/murid
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <SoundToggleButton variant="header" />
             <FullscreenButton variant="header" />
             <button
               onClick={() => setIsAuthenticated(false)}
@@ -312,10 +365,10 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
           <div className="mb-6 p-4 bg-emerald-500/20 border-2 border-emerald-500/50 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
             <div>
               <div className="font-bold text-emerald-300 text-base">
-                🎉 Token Soal Berhasil Dibuat:
+                🎉 Token Soal Berhasil Diterbitkan:
               </div>
               <div className="text-sm text-slate-200 mt-0.5">
-                Bagikan kode <span className="font-mono font-black text-xl text-amber-300 px-2 py-0.5 bg-slate-900 rounded">{savedSuccessToken}</span> kepada murid untuk mulai bermain!
+                Bagikan kode <span className="font-mono font-black text-xl text-amber-300 px-2 py-0.5 bg-slate-900 rounded">{savedSuccessToken}</span> kepada murid di perangkat HP/laptop mana pun untuk mulai bermain!
               </div>
             </div>
             <button
@@ -550,10 +603,11 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
 
                 <button
                   type="submit"
-                  disabled={previewQuestions.length === 0}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-bold rounded-xl shadow-lg transition-all text-sm cursor-pointer"
+                  disabled={previewQuestions.length === 0 || isSavingToken}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-bold rounded-xl shadow-lg transition-all text-sm cursor-pointer flex items-center justify-center gap-2"
                 >
-                  💾 Simpan & Terbitkan Token Game
+                  <span>{isSavingToken ? '⏳' : '💾'}</span>
+                  <span>{isSavingToken ? 'Menyimpan ke Database Spreadsheet...' : 'Simpan & Terbitkan Token Game Online'}</span>
                 </button>
               </form>
             </div>
@@ -566,13 +620,40 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
                 <span className="flex items-center gap-2">
                   <span>🔑</span> Daftar Token Aktif
                 </span>
-                <span className="text-xs font-normal text-slate-400">
-                  {tokens.length} Token Tersedia
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSyncFromSpreadsheet}
+                    disabled={isSyncingTokens}
+                    className="text-xs text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50 transition-colors"
+                    title="Perbarui dari Spreadsheet Google"
+                  >
+                    <span className={isSyncingTokens ? 'animate-spin' : ''}>🔄</span>
+                    <span>{isSyncingTokens ? 'Menyinkronkan...' : 'Sinkronkan'}</span>
+                  </button>
+                  <span className="text-xs font-normal text-slate-400">
+                    ({tokens.length})
+                  </span>
+                </div>
               </h2>
 
+              {syncMessage && (
+                <div
+                  className={`p-2.5 rounded-xl text-xs border mb-3 animate-fadeIn ${
+                    syncMessage.type === 'success'
+                      ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
+                      : 'bg-rose-950/70 border-rose-500/50 text-rose-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span>{syncMessage.type === 'success' ? '✔' : '⚠'}</span>
+                    <span>{syncMessage.text}</span>
+                  </div>
+                </div>
+              )}
+
               <p className="text-xs text-slate-400 mb-4">
-                Setiap guru dapat membuat token tersendiri tanpa mengganggu game atau token guru lain.
+                Token yang tersimpan di Google Spreadsheet dapat dimainkan langsung oleh siswa dari perangkat mana saja.
               </p>
 
               <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">

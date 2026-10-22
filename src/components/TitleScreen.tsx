@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { ANIMALS } from '../game/animalsData.ts';
 import { useSoundManager } from '../hooks/useSoundManager.ts';
 import { FullscreenButton } from './FullscreenButton.tsx';
+import { SoundToggleButton } from './SoundToggleButton.tsx';
 
 interface TitleScreenProps {
   onStartGame: () => void;
@@ -12,7 +13,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStartGame,
   onOpenTeacherPortal,
 }) => {
-  const { isMuted, toggleMute, playBGM } = useSoundManager('title');
+  const { playBGM } = useSoundManager('title');
 
   useEffect(() => {
     // Start BGM on user gesture / interaction
@@ -54,18 +55,11 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Sound Toggle (ON/OFF) */}
+          <SoundToggleButton variant="header" />
+
           {/* Fullscreen Button */}
           <FullscreenButton variant="header" />
-
-          {/* Sound Toggle */}
-          <button
-            onClick={toggleMute}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-lg transition-all cursor-pointer"
-            title={isMuted ? 'Bunyikan Suara' : 'Bisukan Suara'}
-            aria-label={isMuted ? 'Bunyikan Suara' : 'Bisukan Suara'}
-          >
-            {isMuted ? '🔇' : '🔊'}
-          </button>
 
           <button
             onClick={onOpenTeacherPortal}

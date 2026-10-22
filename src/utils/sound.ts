@@ -41,6 +41,9 @@ export function setMuted(muted: boolean) {
   isMuted = muted;
   try {
     localStorage.setItem('subway_surfers_sound_muted', muted ? '1' : '0');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('subway_sound_toggle', { detail: { muted } }));
+    }
   } catch {}
 
   if (bgmMasterGain && audioCtx) {

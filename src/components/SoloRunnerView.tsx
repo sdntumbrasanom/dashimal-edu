@@ -6,7 +6,8 @@ import { GameHUD } from './GameHUD.tsx';
 import { QuestionModal } from './QuestionModal.tsx';
 import { GameOverModal } from './GameOverModal.tsx';
 import { FullscreenButton } from './FullscreenButton.tsx';
-import { handleAnswerQuestion } from '../game/gameLogic.ts';
+import { SoundToggleButton } from './SoundToggleButton.tsx';
+import { handleAnswerQuestion, calculateLiveScore } from '../game/gameLogic.ts';
 import { useSoundManager } from '../hooks/useSoundManager.ts';
 import { randomizeQuizQuestions } from '../game/quizParser.ts';
 
@@ -41,11 +42,13 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
 
   const [lives, setLives] = useState(3);
   const [maxLives] = useState(5);
-  const [score, setScore] = useState(0);
   const [distance, setDistance] = useState(0);
   const [coins, setCoins] = useState(0);
   const [questionsTotal, setQuestionsTotal] = useState(0);
   const [questionsCorrect, setQuestionsCorrect] = useState(0);
+
+  // Skor Penilaian dihitung berdasar jumlah soal benar dan koin yang didapat
+  const score = calculateLiveScore(coins, questionsCorrect);
 
   const [activeQuestion, setActiveQuestion] = useState<Question | null>(null);
   // Default false: animal faces forward down the track
@@ -93,7 +96,6 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
         },
         onStatsUpdate: (stats) => {
           setDistance(stats.distance);
-          setScore(stats.score);
         },
       },
     });
@@ -239,7 +241,6 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
       });
 
       setLives(outcome.newLives);
-      setScore(outcome.newScore);
       setQuestionsTotal(outcome.newTotal);
       setQuestionsCorrect(outcome.newCorrect);
 
@@ -256,7 +257,6 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
   const handleRestart = () => {
     setIsGameOver(false);
     setLives(3);
-    setScore(0);
     setDistance(0);
     setCoins(0);
     setQuestionsTotal(0);
@@ -282,7 +282,6 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
           onCoinCollect: (c) => setCoins(c),
           onStatsUpdate: (s) => {
             setDistance(s.distance);
-            setScore(s.score);
           },
         },
       });
@@ -352,6 +351,11 @@ export const SoloRunnerView: React.FC<SoloRunnerViewProps> = ({
 
               {/* Fullscreen Toggle in Pause Menu */}
               <FullscreenButton variant="menu" />
+
+              {/* Sound Toggle in Pause Menu */}
+              <div className="flex justify-center">
+                <SoundToggleButton variant="hud" className="w-full justify-center py-2.5 h-auto text-sm" />
+              </div>
 
               <button
                 onClick={handleRestart}

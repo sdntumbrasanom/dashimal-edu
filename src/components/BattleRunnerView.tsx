@@ -6,7 +6,8 @@ import { GameHUD } from './GameHUD.tsx';
 import { QuestionModal } from './QuestionModal.tsx';
 import { GameOverModal } from './GameOverModal.tsx';
 import { FullscreenButton } from './FullscreenButton.tsx';
-import { handleAnswerQuestion } from '../game/gameLogic.ts';
+import { SoundToggleButton } from './SoundToggleButton.tsx';
+import { handleAnswerQuestion, calculateLiveScore } from '../game/gameLogic.ts';
 import { useSoundManager } from '../hooks/useSoundManager.ts';
 import { randomizeQuizQuestions } from '../game/quizParser.ts';
 
@@ -47,7 +48,6 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
 
   // Player 1 state
   const [p1Lives, setP1Lives] = useState(3);
-  const [p1Score, setP1Score] = useState(0);
   const [p1Distance, setP1Distance] = useState(0);
   const [p1Coins, setP1Coins] = useState(0);
   const [p1QTotal, setP1QTotal] = useState(0);
@@ -57,13 +57,16 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
 
   // Player 2 state
   const [p2Lives, setP2Lives] = useState(3);
-  const [p2Score, setP2Score] = useState(0);
   const [p2Distance, setP2Distance] = useState(0);
   const [p2Coins, setP2Coins] = useState(0);
   const [p2QTotal, setP2QTotal] = useState(0);
   const [p2QCorrect, setP2QCorrect] = useState(0);
   const [p2Dead, setP2Dead] = useState(false);
   const [p2ActiveQuestion, setP2ActiveQuestion] = useState<Question | null>(null);
+
+  // Skor Penilaian P1 & P2 murni dihitung berdasar jumlah soal benar dan koin yang didapat
+  const p1Score = calculateLiveScore(p1Coins, p1QCorrect);
+  const p2Score = calculateLiveScore(p2Coins, p2QCorrect);
 
   // Default false: animals face forward down the track
   const [isFacingFront, setIsFacingFront] = useState(false);
@@ -143,7 +146,6 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         },
         onStatsUpdate: (s) => {
           setP1Distance(s.distance);
-          setP1Score(s.score);
         },
       },
     });
@@ -187,7 +189,6 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         },
         onStatsUpdate: (s) => {
           setP2Distance(s.distance);
-          setP2Score(s.score);
         },
       },
     });
@@ -288,7 +289,6 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         questionsCorrect: p1QCorrect,
       });
 
-      setP1Score(outcome.newScore);
       setP1QTotal(outcome.newTotal);
       setP1QCorrect(outcome.newCorrect);
 
@@ -315,7 +315,6 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         questionsCorrect: p2QCorrect,
       });
 
-      setP2Score(outcome.newScore);
       setP2QTotal(outcome.newTotal);
       setP2QCorrect(outcome.newCorrect);
 
@@ -329,8 +328,6 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
     setIsGameOver(false);
     setP1Lives(3);
     setP2Lives(3);
-    setP1Score(0);
-    setP2Score(0);
     setP1Distance(0);
     setP2Distance(0);
     setP1Coins(0);
@@ -365,7 +362,6 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
           onCoinCollect: (c) => setP1Coins(c),
           onStatsUpdate: (s) => {
             setP1Distance(s.distance);
-            setP1Score(s.score);
           },
         },
       });
@@ -390,7 +386,6 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
           onCoinCollect: (c) => setP2Coins(c),
           onStatsUpdate: (s) => {
             setP2Distance(s.distance);
-            setP2Score(s.score);
           },
         },
       });
@@ -545,6 +540,11 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
 
               {/* Fullscreen Toggle in Pause Menu */}
               <FullscreenButton variant="menu" />
+
+              {/* Sound Toggle in Pause Menu */}
+              <div className="flex justify-center">
+                <SoundToggleButton variant="hud" className="w-full justify-center py-2.5 h-auto text-sm" />
+              </div>
 
               <button
                 onClick={handleRestart}

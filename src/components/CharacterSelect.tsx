@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AnimalId, GameMode } from '../types/game.ts';
 import { ANIMALS } from '../game/animalsData.ts';
 import { FullscreenButton } from './FullscreenButton.tsx';
+import { SoundToggleButton } from './SoundToggleButton.tsx';
 
 interface CharacterSelectProps {
   mode: GameMode;
@@ -52,7 +53,8 @@ export const CharacterSelect: React.FC<CharacterSelectProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <SoundToggleButton variant="header" />
             <FullscreenButton variant="header" />
 
             {/* If Battle mode, toggle between P1 and P2 picker */}

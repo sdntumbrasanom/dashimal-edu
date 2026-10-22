@@ -18,6 +18,19 @@ import {
 export function useSoundManager(autoBGMTrack?: 'title' | 'game') {
   const [isMuted, setIsMutedState] = useState<boolean>(getMuted());
 
+  useEffect(() => {
+    const handleSoundToggle = (e: Event) => {
+      const customEvent = e as CustomEvent<{ muted: boolean }>;
+      if (customEvent.detail && typeof customEvent.detail.muted === 'boolean') {
+        setIsMutedState(customEvent.detail.muted);
+      } else {
+        setIsMutedState(getMuted());
+      }
+    };
+    window.addEventListener('subway_sound_toggle', handleSoundToggle);
+    return () => window.removeEventListener('subway_sound_toggle', handleSoundToggle);
+  }, []);
+
   // Optionally auto-play BGM on mount and cleanup on unmount
   useEffect(() => {
     if (autoBGMTrack) {

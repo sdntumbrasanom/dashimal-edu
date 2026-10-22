@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
 import { GameMode, QuizToken } from '../types/game.ts';
-import { getTokenByCode, getAllTokens, saveToken } from '../utils/tokenStore.ts';
+import {
+  getTokenByCode,
+  getAllTokens,
+  saveToken,
+  fetchTokenOnline,
+  syncAllTokensFromOnline,
+} from '../utils/tokenStore.ts';
 import { buildGoogleSheetCsvUrl, parseQuestionsCsv } from '../game/quizParser.ts';
 import { FullscreenButton } from './FullscreenButton.tsx';
+import { SoundToggleButton } from './SoundToggleButton.tsx';
 
 interface LobbyScreenProps {
   mode: GameMode;
@@ -20,18 +27,20 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
   const [tokenInput, setTokenInput] = useState('');
   const [matchedToken, setMatchedToken] = useState<QuizToken | null>(null);
   const [tokenStatus, setTokenStatus] = useState<{
-    type: 'idle' | 'matched' | 'custom' | 'sheet';
+    type: 'idle' | 'matched' | 'custom' | 'sheet' | 'loading' | 'error';
     message: string;
   }>({ type: 'idle', message: '' });
+
+  const [activeTokens, setActiveTokens] = useState<QuizToken[]>(getAllTokens());
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isCheckingOnline, setIsCheckingOnline] = useState(false);
 
   // Optional direct sheet input toggle
   const [showSheetInput, setShowSheetInput] = useState(false);
   const [sheetUrlInput, setSheetUrlInput] = useState('');
   const [sheetLoading, setSheetLoading] = useState(false);
 
-  const activeTokens = getAllTokens();
-
-  const handleCheckToken = (code: string) => {
+  const handleCheckToken = async (code: string) => {
     const trimmed = code.trim().toUpperCase();
     setTokenInput(trimmed);
 
@@ -41,29 +50,76 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
       return;
     }
 
-    const found = getTokenByCode(trimmed);
-    if (found) {
-      setMatchedToken(found);
-      const waInfo = found.teacherPhone ? ` · 📱 WA Tujuan: ${found.teacherPhone}` : '';
+    // 1. Cek lokal terlebih dahulu
+    const localFound = getTokenByCode(trimmed);
+    if (localFound) {
+      setMatchedToken(localFound);
+      const waInfo = localFound.teacherPhone ? ` · 📱 WA Tujuan: ${localFound.teacherPhone}` : '';
       setTokenStatus({
         type: 'matched',
-        message: `Token Terverifikasi: "${found.title}" oleh ${found.teacherName}${waInfo} (${found.questions.length} soal)`,
+        message: `Token Terverifikasi: "${localFound.title}" oleh ${localFound.teacherName}${waInfo} (${localFound.questions.length} soal)`,
       });
-    } else {
-      // Allow custom token name
-      setMatchedToken({
-        code: trimmed,
-        title: `Kuis Token ${trimmed}`,
-        teacherName: 'Guru Pengampu',
-        teacherPhone: activeTokens[0]?.teacherPhone,
-        sheetUrl: '',
-        questions: activeTokens[0]?.questions || [],
-        createdAt: new Date().toISOString().split('T')[0],
-      });
+      return;
+    }
+
+    // 2. Jika tidak ada di lokal, cari di Database Google Spreadsheet online
+    setIsCheckingOnline(true);
+    setTokenStatus({
+      type: 'loading',
+      message: `Sedang mencari kode "${trimmed}" di Database Google Spreadsheet online...`,
+    });
+
+    try {
+      const onlineFound = await fetchTokenOnline(trimmed);
+      if (onlineFound) {
+        setMatchedToken(onlineFound);
+        // Perbarui daftar token lokal di state
+        setActiveTokens(getAllTokens());
+        const waInfo = onlineFound.teacherPhone ? ` · 📱 WA Tujuan: ${onlineFound.teacherPhone}` : '';
+        setTokenStatus({
+          type: 'matched',
+          message: `🟢 Token Ditemukan dari Spreadsheet: "${onlineFound.title}" oleh ${onlineFound.teacherName}${waInfo} (${onlineFound.questions.length} soal)`,
+        });
+        return;
+      }
+    } catch {
+      // Abaikan error jaringan
+    } finally {
+      setIsCheckingOnline(false);
+    }
+
+    // 3. Fallback: izinkan token kustom jika tidak ditemukan
+    setMatchedToken({
+      code: trimmed,
+      title: `Kuis Token ${trimmed}`,
+      teacherName: 'Guru Pengampu',
+      teacherPhone: activeTokens[0]?.teacherPhone,
+      sheetUrl: '',
+      questions: activeTokens[0]?.questions || [],
+      createdAt: new Date().toISOString().split('T')[0],
+    });
+    setTokenStatus({
+      type: 'custom',
+      message: `Kode token "${trimmed}" siap digunakan! Laporan nilai WhatsApp akan mencatat kode token ini.`,
+    });
+  };
+
+  const handleSyncTokens = async () => {
+    setIsSyncing(true);
+    try {
+      const synced = await syncAllTokensFromOnline();
+      setActiveTokens(synced);
       setTokenStatus({
-        type: 'custom',
-        message: `Kode token "${trimmed}" siap digunakan! Laporan nilai WhatsApp akan mencatat kode token ini.`,
+        type: 'matched',
+        message: `✔ Berhasil menyinkronkan ${synced.length} paket soal dari Google Spreadsheet online!`,
       });
+    } catch (err) {
+      setTokenStatus({
+        type: 'error',
+        message: 'Gagal menyinkronkan dari spreadsheet. Periksa koneksi internet Anda.',
+      });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -146,14 +202,17 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-center items-center p-4 sm:p-6">
       <div className="max-w-xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-2">
           <button
             onClick={onBack}
             className="text-xs text-slate-400 hover:text-white inline-flex items-center gap-1 cursor-pointer"
           >
             ← Ganti Mode Permainan
           </button>
-          <FullscreenButton variant="header" />
+          <div className="flex items-center gap-2">
+            <SoundToggleButton variant="header" />
+            <FullscreenButton variant="header" />
+          </div>
         </div>
 
         <div className="mb-6">
@@ -253,10 +312,22 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
               </div>
             )}
 
-            {/* Quick Pick from Local Tokens */}
+            {/* Quick Pick from Local/Online Tokens */}
             <div className="pt-2 border-t border-slate-700/60">
-              <div className="text-[11px] font-semibold text-slate-400 mb-2">
-                Atau pilih kode token yang sudah terdaftar di sekolah ini:
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Pilih kode token terdaftar:
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSyncTokens}
+                  disabled={isSyncing}
+                  className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50 transition-colors"
+                  title="Ambil paket soal kuis terbaru dari Google Spreadsheet Guru"
+                >
+                  <span className={isSyncing ? 'animate-spin' : ''}>🔄</span>
+                  <span>{isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Soal Guru'}</span>
+                </button>
               </div>
               <div className="flex flex-wrap gap-2">
                 {activeTokens.map((t) => (

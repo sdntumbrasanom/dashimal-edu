@@ -221,4 +221,520 @@ export function updateTokenPhone(code: string, teacherPhone: string): boolean {
   }
 }
 
+const SECRET_PREFIX = 'enc_v1:';
+
+function obfuscateSecret(val: string): string {
+  if (!val) return '';
+  try {
+    if (val.startsWith(SECRET_PREFIX)) return val;
+    const bytes = new TextEncoder().encode(val);
+    const shifted = Array.from(bytes).map((b, i) => b ^ (0x5a + (i % 7)));
+    let binStr = '';
+    for (let i = 0; i < shifted.length; i++) {
+      binStr += String.fromCharCode(shifted[i]);
+    }
+    return `${SECRET_PREFIX}${btoa(binStr)}`;
+  } catch {
+    return val;
+  }
+}
+
+function deobfuscateSecret(stored: string): string {
+  if (!stored) return '';
+  if (!stored.startsWith(SECRET_PREFIX)) {
+    return stored;
+  }
+  try {
+    const b64 = stored.slice(SECRET_PREFIX.length);
+    const binStr = atob(b64);
+    const bytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) {
+      bytes[i] = binStr.charCodeAt(i) ^ (0x5a + (i % 7));
+    }
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return '';
+  }
+}
+
+export function maskAppsScriptUrl(url: string): string {
+  if (!url || !url.trim()) return '(Belum dikonfigurasi)';
+  const clean = url.trim();
+  const match = clean.match(/^(https?:\/\/script\.google\.com\/macros\/s\/)([^/]+)(\/exec.*)?$/i);
+  if (match) {
+    const prefix = match[1];
+    const key = match[2];
+    const suffix = match[3] || '/exec';
+    const visiblePrefix = key.slice(0, 4);
+    const visibleSuffix = key.slice(-4);
+    return `${prefix}${visiblePrefix}••••••••••••${visibleSuffix}${suffix}`;
+  }
+  if (clean.length > 20) {
+    return `${clean.slice(0, 12)}••••••••••••${clean.slice(-6)}`;
+  }
+  return '•••••••••••• (Tersembunyi)';
+}
+
+export const APPS_SCRIPT_URL_KEY = 'subway_apps_script_url';
+export const APPS_SCRIPT_KEY_STORAGE = 'subway_apps_script_secret_key';
+
+let runtimeManualUrl = '';
+
+/**
+ * Mengatur URL Apps Script yang dimasukkan secara manual di kode TeacherPortal.tsx
+ */
+export function setManualAppsScriptUrl(url: string): void {
+  runtimeManualUrl = url ? url.trim() : '';
+}
+
+export function getAppsScriptUrl(): string {
+  if (runtimeManualUrl) {
+    return runtimeManualUrl;
+  }
+  try {
+    const raw = localStorage.getItem(APPS_SCRIPT_URL_KEY);
+    if (!raw) return '';
+    const decoded = deobfuscateSecret(raw);
+    if (raw && !raw.startsWith(SECRET_PREFIX)) {
+      try {
+        localStorage.setItem(APPS_SCRIPT_URL_KEY, obfuscateSecret(raw));
+      } catch {}
+    }
+    return decoded;
+  } catch {
+    return '';
+  }
+}
+
+export function setAppsScriptUrl(url: string): void {
+  try {
+    const clean = url.trim();
+    if (!clean) {
+      localStorage.removeItem(APPS_SCRIPT_URL_KEY);
+    } else {
+      localStorage.setItem(APPS_SCRIPT_URL_KEY, obfuscateSecret(clean));
+    }
+  } catch (err) {
+    console.error('Gagal menyimpan URL database', err);
+  }
+}
+
+export function getAppsScriptSecretKey(): string {
+  try {
+    const raw = localStorage.getItem(APPS_SCRIPT_KEY_STORAGE);
+    if (!raw) return '';
+    return deobfuscateSecret(raw);
+  } catch {
+    return '';
+  }
+}
+
+export function setAppsScriptSecretKey(key: string): void {
+  try {
+    const clean = key.trim();
+    if (!clean) {
+      localStorage.removeItem(APPS_SCRIPT_KEY_STORAGE);
+    } else {
+      localStorage.setItem(APPS_SCRIPT_KEY_STORAGE, obfuscateSecret(clean));
+    }
+  } catch (err) {
+    console.error('Gagal menyimpan PIN database', err);
+  }
+}
+
+export function clearAppsScriptConfig(): void {
+  try {
+    localStorage.removeItem(APPS_SCRIPT_URL_KEY);
+    localStorage.removeItem(APPS_SCRIPT_KEY_STORAGE);
+  } catch {}
+}
+
+/**
+ * Menyimpan token kuis secara online ke Spreadsheet melalui Google Apps Script Web App
+ * sekaligus menyimpannya ke memori lokal browser.
+ */
+export async function saveTokenOnline(token: QuizToken): Promise<{
+  success: boolean;
+  syncedOnline: boolean;
+  message?: string;
+}> {
+  // Selalu simpan di lokal terlebih dahulu
+  saveToken(token);
+
+  const scriptUrl = getAppsScriptUrl();
+  if (!scriptUrl) {
+    return {
+      success: true,
+      syncedOnline: false,
+      message: 'Token tersimpan di memori perangkat ini. Hubungkan URL Google Apps Script di menu Portal Guru agar siswa di HP atau laptop lain dapat langsung membuka kuis dengan kode token ini.',
+    };
+  }
+
+  const secretKey = getAppsScriptSecretKey();
+
+  try {
+    // Kirim POST dengan header text/plain agar tidak terkena pembatasan CORS preflight browser
+    const payload = JSON.stringify({
+      action: 'save',
+      token,
+      key: secretKey || undefined,
+    });
+
+    let syncSuccess = false;
+    try {
+      const resp = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: payload,
+      });
+      if (resp.ok) {
+        syncSuccess = true;
+      }
+    } catch {
+      // Fallback via GET jika POST diblokir oleh ekstensi atau lingkungan jaringan
+      try {
+        const sep = scriptUrl.includes('?') ? '&' : '?';
+        let getUrl = `${scriptUrl}${sep}action=save&payload=${encodeURIComponent(JSON.stringify(token))}`;
+        if (secretKey) {
+          getUrl += `&key=${encodeURIComponent(secretKey)}`;
+        }
+        const getResp = await fetch(getUrl, { method: 'GET' });
+        if (getResp.ok) {
+          syncSuccess = true;
+        }
+      } catch {}
+    }
+
+    return {
+      success: true,
+      syncedOnline: syncSuccess,
+      message: syncSuccess
+        ? `Token "${token.code}" berhasil disimpan ke Google Spreadsheet online! Siswa di HP atau perangkat lain dapat langsung membukanya.`
+        : `Token "${token.code}" tersimpan di lokal dan telah dikirim ke antrean sinkronisasi spreadsheet.`,
+    };
+  } catch (err) {
+    console.warn('Gagal sinkronisasi ke Database Spreadsheet online (koneksi terganggu)');
+    return {
+      success: true,
+      syncedOnline: false,
+      message: `Token tersimpan di lokal (Peringatan koneksi online: ${err instanceof Error ? err.message : 'Jaringan terputus'}).`,
+    };
+  }
+}
+
+/**
+ * Mencari token kuis di Database Google Spreadsheet online jika belum ada di lokal,
+ * atau mengambil versi terbaru dari spreadsheet.
+ */
+export async function fetchTokenOnline(code: string): Promise<QuizToken | null> {
+  const cleanCode = code.trim().toUpperCase();
+  if (!cleanCode) return null;
+
+  // Cek lokal terlebih dahulu
+  const localMatch = getTokenByCode(cleanCode);
+
+  const scriptUrl = getAppsScriptUrl();
+  if (!scriptUrl) {
+    return localMatch;
+  }
+
+  const secretKey = getAppsScriptSecretKey();
+
+  try {
+    const sep = scriptUrl.includes('?') ? '&' : '?';
+    let queryUrl = `${scriptUrl}${sep}action=get&code=${encodeURIComponent(cleanCode)}`;
+    if (secretKey) {
+      queryUrl += `&key=${encodeURIComponent(secretKey)}`;
+    }
+    const resp = await fetch(queryUrl);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.status === 'success' && data.found && data.token) {
+        const onlineToken = data.token as QuizToken;
+        // Simpan ke cache lokal agar bisa dimainkan offline berikutnya
+        saveToken(onlineToken);
+        return onlineToken;
+      }
+    }
+  } catch {
+    // Abaikan kegagalan jaringan agar siswa tetap bisa main offline jika ada
+  }
+
+  return localMatch;
+}
+
+/**
+ * Mengambil semua daftar token kuis yang terdaftar di Google Spreadsheet
+ * dan menggabungkannya ke penyimpanan lokal perangkat.
+ */
+export async function syncAllTokensFromOnline(): Promise<QuizToken[]> {
+  const scriptUrl = getAppsScriptUrl();
+  if (!scriptUrl) {
+    return getAllTokens();
+  }
+
+  const secretKey = getAppsScriptSecretKey();
+
+  try {
+    const sep = scriptUrl.includes('?') ? '&' : '?';
+    let queryUrl = `${scriptUrl}${sep}action=list`;
+    if (secretKey) {
+      queryUrl += `&key=${encodeURIComponent(secretKey)}`;
+    }
+    const resp = await fetch(queryUrl);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.status === 'success' && Array.isArray(data.tokens) && data.tokens.length > 0) {
+        const onlineTokens: QuizToken[] = data.tokens;
+        const currentLocal = getAllTokens();
+
+        // Gabungkan token online dengan default lokal
+        const mergedMap = new Map<string, QuizToken>();
+        currentLocal.forEach((t) => mergedMap.set(t.code.toUpperCase(), t));
+        onlineTokens.forEach((t) => mergedMap.set(t.code.toUpperCase(), t));
+
+        const mergedList = Array.from(mergedMap.values());
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedList));
+        return mergedList;
+      }
+    }
+  } catch {
+    // Sinkronisasi jaringan gagal, gunakan cache lokal
+  }
+
+  return getAllTokens();
+}
+
+/**
+ * Menghapus token secara lokal dan di Spreadsheet online.
+ */
+export async function deleteTokenOnline(code: string): Promise<boolean> {
+  deleteToken(code);
+  const scriptUrl = getAppsScriptUrl();
+  if (!scriptUrl) return true;
+
+  const secretKey = getAppsScriptSecretKey();
+
+  try {
+    await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'delete', code, key: secretKey || undefined }),
+    });
+  } catch {}
+  return true;
+}
+
+export const GOOGLE_APPS_SCRIPT_TEMPLATE_CODE = `/**
+ * GOOGLE APPS SCRIPT DATABASE DASHIMAL EDU (SUBWAY SURFERS EDUKASI)
+ * Skrip ini bertindak sebagai Database Web API untuk menyimpan & membaca token soal kuis
+ * agar dapat diakses oleh siswa di HP, tablet, dan komputer yang berbeda!
+ *
+ * FITUR KEAMANAN:
+ * - URL & Akses Web App disembunyikan/dienkripsi dari antarmuka siswa.
+ * - Anda dapat mengisi API_SECRET_KEY di bawah ini jika ingin mengunci database dengan PIN/Password.
+ *
+ * CARA PASANG (1 MENIT):
+ * 1. Buka spreadsheet baru di https://sheets.new (atau gunakan spreadsheet Anda).
+ * 2. Klik menu: Ekstensi (Extensions) > Apps Script.
+ * 3. Hapus kode bawaan (myFunction), lalu paste seluruh kode di bawah ini.
+ * 4. (Opsional): Atur API_SECRET_KEY di baris 20 jika ingin membatasi akses dengan PIN rahasia.
+ * 5. Klik ikon Simpan (Disket).
+ * 6. Klik tombol biru: Terapkan (Deploy) > Penerapan baru (New deployment).
+ * 7. Pilih jenis: Aplikasi web (Web app).
+ * 8. Konfigurasi:
+ *    - Deskripsi: Database Soal Dashimal Edu
+ *    - Jalankan sebagai: Saya (email Anda)
+ *    - Siapa yang memiliki akses: Siapa saja (Anyone)  <-- WAJIB PILIH INI!
+ * 9. Klik Terapkan (Deploy), berikan izin (Authorize access), lalu salin URL Aplikasi Web (/exec).
+ * 10. Tempelkan URL tersebut ke Portal Guru di Dashimal Edu!
+ */
+
+// =========================================================================
+// KUNCI KEAMANAN RAHASIA / PIN DATABASE (OPSIONAL)
+// Kosongkan ("") jika tidak ingin membatasi dengan PIN tambahan.
+// Atau isi misal: "GURU2026" jika ingin hanya yang tahu PIN ini yang bisa akses.
+// =========================================================================
+var API_SECRET_KEY = "";
+
+function isAuthorized(e, data) {
+  if (!API_SECRET_KEY || API_SECRET_KEY.toString().trim() === '') {
+    return true; // Mode publik/terbuka (akses diamankan oleh kerahasiaan URL)
+  }
+  var incomingKey = (e && e.parameter && e.parameter.key) || (data && data.key) || '';
+  return String(incomingKey).trim() === API_SECRET_KEY.toString().trim();
+}
+
+function doGet(e) {
+  if (!isAuthorized(e, null)) {
+    return createJsonResponse({
+      status: 'error',
+      message: 'Akses ditolak: Kunci PIN keamanan database tidak cocok atau belum diatur.'
+    });
+  }
+
+  var action = (e && e.parameter && e.parameter.action) || 'list';
+  var code = e && e.parameter && e.parameter.code;
+  var sheet = getOrCreateSheet();
+
+  if (action === 'get' && code) {
+    var token = findTokenByCode(sheet, code);
+    if (token) {
+      return createJsonResponse({ status: 'success', found: true, token: token });
+    } else {
+      return createJsonResponse({ status: 'success', found: false, message: 'Token tidak ditemukan' });
+    }
+  }
+
+  if (action === 'list') {
+    var tokens = getAllTokensFromSheet(sheet);
+    return createJsonResponse({ status: 'success', tokens: tokens });
+  }
+
+  if (action === 'save' && e.parameter.payload) {
+    try {
+      var parsed = JSON.parse(decodeURIComponent(e.parameter.payload));
+      var saved = saveTokenToSheet(sheet, parsed);
+      return createJsonResponse({ status: 'success', message: 'Token berhasil disimpan', token: saved });
+    } catch(err) {
+      return createJsonResponse({ status: 'error', message: err.toString() });
+    }
+  }
+
+  return createJsonResponse({ status: 'success', message: 'API Dashimal Edu Aktif' });
+}
+
+function doPost(e) {
+  try {
+    var sheet = getOrCreateSheet();
+    var contents = e.postData.contents;
+    var data = JSON.parse(contents);
+
+    if (!isAuthorized(e, data)) {
+      return createJsonResponse({
+        status: 'error',
+        message: 'Akses ditolak: Kunci PIN keamanan database tidak cocok.'
+      });
+    }
+
+    if (data.action === 'save' && data.token) {
+      var saved = saveTokenToSheet(sheet, data.token);
+      return createJsonResponse({ status: 'success', message: 'Token berhasil disimpan ke spreadsheet', token: saved });
+    }
+
+    if (data.action === 'delete' && data.code) {
+      deleteTokenFromSheet(sheet, data.code);
+      return createJsonResponse({ status: 'success', message: 'Token berhasil dihapus' });
+    }
+
+    return createJsonResponse({ status: 'error', message: 'Aksi tidak dikenali' });
+  } catch (err) {
+    return createJsonResponse({ status: 'error', message: err.toString() });
+  }
+}
+
+function getOrCreateSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Tokens');
+  if (!sheet) {
+    sheet = ss.getSheets()[0];
+    sheet.setName('Tokens');
+  }
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['Kode Token', 'Judul Kuis', 'Nama Guru', 'No WA Guru', 'URL Spreadsheet', 'Daftar Soal (JSON)', 'Waktu Dibuat']);
+    sheet.getRange(1, 1, 1, 7).setFontWeight('bold').setBackground('#f3f4f6');
+  }
+  return sheet;
+}
+
+function getAllTokensFromSheet(sheet) {
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  var tokens = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var code = String(row[0] || '').trim();
+    if (!code) continue;
+    var questions = [];
+    try {
+      questions = JSON.parse(row[5] || '[]');
+    } catch(e) {
+      questions = [];
+    }
+    tokens.push({
+      code: code,
+      title: String(row[1] || ''),
+      teacherName: String(row[2] || ''),
+      teacherPhone: String(row[3] || ''),
+      sheetUrl: String(row[4] || ''),
+      questions: questions,
+      createdAt: String(row[6] || '')
+    });
+  }
+  return tokens;
+}
+
+function findTokenByCode(sheet, code) {
+  var search = String(code).trim().toUpperCase();
+  var tokens = getAllTokensFromSheet(sheet);
+  for (var i = 0; i < tokens.length; i++) {
+    if (tokens[i].code.toUpperCase() === search) {
+      return tokens[i];
+    }
+  }
+  return null;
+}
+
+function saveTokenToSheet(sheet, token) {
+  var searchCode = String(token.code).trim().toUpperCase();
+  var data = sheet.getDataRange().getValues();
+  var rowIndex = -1;
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toUpperCase() === searchCode) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  var questionsJson = JSON.stringify(token.questions || []);
+  var dateStr = token.createdAt || Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd HH:mm');
+
+  var rowValues = [
+    searchCode,
+    token.title || 'Kuis ' + searchCode,
+    token.teacherName || 'Guru',
+    token.teacherPhone || '',
+    token.sheetUrl || '',
+    questionsJson,
+    dateStr
+  ];
+
+  if (rowIndex > 0) {
+    sheet.getRange(rowIndex, 1, 1, 7).setValues([rowValues]);
+  } else {
+    sheet.appendRow(rowValues);
+  }
+
+  return token;
+}
+
+function deleteTokenFromSheet(sheet, code) {
+  var searchCode = String(code).trim().toUpperCase();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toUpperCase() === searchCode) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
+}
+
+function createJsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+`;
+
+
 

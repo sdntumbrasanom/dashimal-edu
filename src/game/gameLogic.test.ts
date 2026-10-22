@@ -4,6 +4,7 @@ import {
   handlePlayerHit,
   handleAnswerQuestion,
   calculateLiveScore,
+  calculateEvaluationScore,
   generateWhatsAppMessage,
   generateBattleWhatsAppMessage,
   buildWhatsAppUrl,
@@ -68,9 +69,22 @@ test('handleAnswerQuestion grants life and 100 points when correct', () => {
   assert.equal(resWrong.newCorrect, 1);
 });
 
-test('calculateLiveScore computes live total', () => {
-  const score = calculateLiveScore(150.7, 12, 200);
-  assert.equal(score, 150 + 120 + 200);
+test('calculateLiveScore computes evaluation score based on questions correct and coins', () => {
+  // 3 correct answers (+300) and 15 coins (+150) = 450
+  const score = calculateLiveScore(15, 3);
+  assert.equal(score, 450);
+
+  // 0 coins and 5 correct answers = 500
+  assert.equal(calculateLiveScore(0, 5), 500);
+
+  // 20 coins and 0 correct answers = 200
+  assert.equal(calculateLiveScore(20, 0), 200);
+
+  const evalStats = calculateEvaluationScore(4, 5, 12);
+  assert.equal(evalStats.totalScore, 400 + 120);
+  assert.equal(evalStats.quizScore, 400);
+  assert.equal(evalStats.coinsScore, 120);
+  assert.equal(evalStats.accuracy, 80);
 });
 
 test('generateWhatsAppMessage and buildWhatsAppUrl generate valid output', () => {

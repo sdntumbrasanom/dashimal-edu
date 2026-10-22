@@ -581,7 +581,6 @@ export class SubwayRunnerEngine {
     this.speed = Math.min(34, 19 + (this.distance / 120) * 1.5);
     const moveZ = this.speed * dt;
     this.distance += moveZ;
-    this.score += Math.floor(moveZ);
 
     // Damped Lane Interpolation
     const targetX = LANES[this.currentLane];

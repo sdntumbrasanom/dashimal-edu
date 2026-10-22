@@ -1,6 +1,7 @@
 import React from 'react';
 import { GameMode } from '../types/game.ts';
 import { FullscreenButton } from './FullscreenButton.tsx';
+import { SoundToggleButton } from './SoundToggleButton.tsx';
 
 interface ModeSelectProps {
   onSelectMode: (mode: GameMode) => void;
@@ -11,15 +12,18 @@ export const ModeSelect: React.FC<ModeSelectProps> = ({ onSelectMode, onBack }) 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-center items-center p-4 sm:p-8">
       <div className="max-w-4xl w-full">
-        {/* Header with Navigation and Fullscreen */}
-        <div className="flex items-center justify-between mb-4">
+        {/* Header with Navigation, Sound Toggle and Fullscreen */}
+        <div className="flex items-center justify-between mb-4 gap-2">
           <button
             onClick={onBack}
             className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white cursor-pointer"
           >
             ← Kembali ke Menu Utama
           </button>
-          <FullscreenButton variant="header" />
+          <div className="flex items-center gap-2">
+            <SoundToggleButton variant="header" />
+            <FullscreenButton variant="header" />
+          </div>
         </div>
 
         <div className="text-center mb-8">
