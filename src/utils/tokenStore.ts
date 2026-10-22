@@ -381,14 +381,26 @@ export async function saveTokenOnline(token: QuizToken): Promise<{
     });
 
     let syncSuccess = false;
+    let syncErrorReason = '';
+
     try {
       const resp = await fetch(scriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: payload,
       });
-      if (resp.ok) {
-        syncSuccess = true;
+      const text = await resp.text();
+      try {
+        const data = JSON.parse(text);
+        if (data && data.status === 'success') {
+          syncSuccess = true;
+        } else if (data && data.message) {
+          syncErrorReason = data.message;
+        }
+      } catch {
+        if (text.includes('You need permission') || text.includes('accounts.google.com') || text.includes('You need access')) {
+          syncErrorReason = 'Akses Google Apps Script Terkunci: Pada saat Deploy Web App, opsi "Siapa yang memiliki akses (Who has access)" harus disetel ke "Siapa saja (Anyone)". Saat ini masih terkunci untuk akun Anda saja.';
+        }
       }
     } catch {
       // Fallback via GET jika POST diblokir oleh ekstensi atau lingkungan jaringan
@@ -399,8 +411,18 @@ export async function saveTokenOnline(token: QuizToken): Promise<{
           getUrl += `&key=${encodeURIComponent(secretKey)}`;
         }
         const getResp = await fetch(getUrl, { method: 'GET' });
-        if (getResp.ok) {
-          syncSuccess = true;
+        const getText = await getResp.text();
+        try {
+          const getData = JSON.parse(getText);
+          if (getData && getData.status === 'success') {
+            syncSuccess = true;
+          } else if (getData && getData.message) {
+            syncErrorReason = getData.message;
+          }
+        } catch {
+          if (getText.includes('You need permission') || getText.includes('accounts.google.com') || getText.includes('You need access')) {
+            syncErrorReason = 'Akses Google Apps Script Terkunci: Pada saat Deploy Web App, opsi "Siapa yang memiliki akses (Who has access)" harus disetel ke "Siapa saja (Anyone)".';
+          }
         }
       } catch {}
     }
@@ -410,7 +432,7 @@ export async function saveTokenOnline(token: QuizToken): Promise<{
       syncedOnline: syncSuccess,
       message: syncSuccess
         ? `Token "${token.code}" berhasil disimpan ke Google Spreadsheet online! Siswa di HP atau perangkat lain dapat langsung membukanya.`
-        : `Token "${token.code}" tersimpan di lokal dan telah dikirim ke antrean sinkronisasi spreadsheet.`,
+        : (syncErrorReason || `Token "${token.code}" tersimpan di lokal (Peringatan: Gagal disinkronkan ke spreadsheet online).`),
     };
   } catch (err) {
     console.warn('Gagal sinkronisasi ke Database Spreadsheet online (koneksi terganggu)');
@@ -447,14 +469,17 @@ export async function fetchTokenOnline(code: string): Promise<QuizToken | null> 
       queryUrl += `&key=${encodeURIComponent(secretKey)}`;
     }
     const resp = await fetch(queryUrl);
-    if (resp.ok) {
-      const data = await resp.json();
+    const text = await resp.text();
+    try {
+      const data = JSON.parse(text);
       if (data && data.status === 'success' && data.found && data.token) {
         const onlineToken = data.token as QuizToken;
         // Simpan ke cache lokal agar bisa dimainkan offline berikutnya
         saveToken(onlineToken);
         return onlineToken;
       }
+    } catch {
+      // Respons bukan JSON (misal Google login page jika akses belum dibuka publik)
     }
   } catch {
     // Abaikan kegagalan jaringan agar siswa tetap bisa main offline jika ada
@@ -482,24 +507,34 @@ export async function syncAllTokensFromOnline(): Promise<QuizToken[]> {
       queryUrl += `&key=${encodeURIComponent(secretKey)}`;
     }
     const resp = await fetch(queryUrl);
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data && data.status === 'success' && Array.isArray(data.tokens) && data.tokens.length > 0) {
-        const onlineTokens: QuizToken[] = data.tokens;
-        const currentLocal = getAllTokens();
-
-        // Gabungkan token online dengan default lokal
-        const mergedMap = new Map<string, QuizToken>();
-        currentLocal.forEach((t) => mergedMap.set(t.code.toUpperCase(), t));
-        onlineTokens.forEach((t) => mergedMap.set(t.code.toUpperCase(), t));
-
-        const mergedList = Array.from(mergedMap.values());
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedList));
-        return mergedList;
+    const text = await resp.text();
+    let data: any = null;
+    try {
+      data = JSON.parse(text);
+    } catch (parseErr) {
+      if (text.includes('You need permission') || text.includes('accounts.google.com') || text.includes('You need access')) {
+        throw new Error('Akses Google Apps Script Terkunci! Opsi "Siapa yang memiliki akses (Who has access)" pada New Deployment di Apps Script harus diubah menjadi "Siapa saja (Anyone)".');
       }
+      throw parseErr;
     }
-  } catch {
-    // Sinkronisasi jaringan gagal, gunakan cache lokal
+
+    if (data && data.status === 'success' && Array.isArray(data.tokens) && data.tokens.length > 0) {
+      const onlineTokens: QuizToken[] = data.tokens;
+      const currentLocal = getAllTokens();
+
+      // Gabungkan token online dengan default lokal
+      const mergedMap = new Map<string, QuizToken>();
+      currentLocal.forEach((t) => mergedMap.set(t.code.toUpperCase(), t));
+      onlineTokens.forEach((t) => mergedMap.set(t.code.toUpperCase(), t));
+
+      const mergedList = Array.from(mergedMap.values());
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedList));
+      return mergedList;
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('Akses Google Apps Script Terkunci')) {
+      throw err;
+    }
   }
 
   return getAllTokens();
