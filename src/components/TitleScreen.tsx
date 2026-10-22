@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ANIMALS } from '../game/animalsData.ts';
 import { useSoundManager } from '../hooks/useSoundManager.ts';
 import { FullscreenButton } from './FullscreenButton.tsx';
 import { SoundToggleButton } from './SoundToggleButton.tsx';
+import { LeaderboardModal } from './LeaderboardModal.tsx';
 
 interface TitleScreenProps {
   onStartGame: () => void;
@@ -13,6 +14,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStartGame,
   onOpenTeacherPortal,
 }) => {
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const { playBGM } = useSoundManager('title');
 
   useEffect(() => {
@@ -49,24 +51,36 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       <header className="relative z-10 px-4 sm:px-6 py-4 flex items-center justify-between max-w-7xl mx-auto w-full gap-2">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🚇</span>
-          <span className="font-mono text-xs font-bold tracking-wider text-amber-400 uppercase bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+          <span className="font-mono text-xs font-bold tracking-wider text-amber-400 capitalize bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
             Developed By Misbahul Munir
           </span>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Sound Toggle (ON/OFF) */}
-          <SoundToggleButton variant="header" />
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Menu Suara (Simbol Saja) */}
+          <SoundToggleButton variant="header" showLabel={false} />
 
-          {/* Fullscreen Button */}
-          <FullscreenButton variant="header" />
+          {/* Menu Layar Penuh (Simbol Saja) */}
+          <FullscreenButton variant="header" showLabel={false} />
 
+          {/* Menu Papan Skor (Simbol Saja) */}
+          <button
+            onClick={() => setShowLeaderboard(true)}
+            className="w-9 sm:w-10 h-9 sm:h-10 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-300 hover:text-white border border-amber-500/30 flex items-center justify-center transition-all cursor-pointer shadow-sm text-base shrink-0"
+            title="Papan Skor (Google Spreadsheet)"
+            aria-label="Papan Skor"
+          >
+            🏆
+          </button>
+
+          {/* Menu Portal Guru (Simbol Saja) */}
           <button
             onClick={onOpenTeacherPortal}
-            className="px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-bold text-blue-300 hover:text-white border border-blue-500/30 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer"
+            className="w-9 sm:w-10 h-9 sm:h-10 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-blue-300 hover:text-white border border-blue-500/30 flex items-center justify-center transition-all cursor-pointer shadow-sm text-base shrink-0"
+            title="Portal Guru"
+            aria-label="Portal Guru"
           >
-            <span>👨‍🏫</span>
-            <span className="hidden sm:inline">Portal Guru</span>
+            👨‍🏫
           </button>
         </div>
       </header>
@@ -160,6 +174,14 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </button>
 
           <button
+            onClick={() => setShowLeaderboard(true)}
+            className="w-full sm:w-auto px-6 py-4 bg-slate-800/90 hover:bg-slate-800 text-amber-300 hover:text-white font-bold text-sm sm:text-base rounded-2xl border border-amber-500/40 transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <span>🏆</span>
+            <span>Papan Skor</span>
+          </button>
+
+          <button
             onClick={onOpenTeacherPortal}
             className="w-full sm:w-auto px-6 py-4 bg-slate-800/90 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-sm sm:text-base rounded-2xl border border-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2"
           >
@@ -179,6 +201,12 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         <span className="mx-2 text-slate-600">·</span>
         <span>Space / Enter Mulai Cepat</span>
       </footer>
+
+      {/* Leaderboard Modal */}
+      <LeaderboardModal
+        isOpen={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+      />
     </div>
   );
 };

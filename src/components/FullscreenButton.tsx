@@ -99,7 +99,9 @@ export const FullscreenButton: React.FC<FullscreenButtonProps> = ({
   return (
     <button
       onClick={toggleFullscreen}
-      className={`px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-bold text-cyan-300 hover:text-white border border-cyan-500/30 flex items-center gap-2 transition-all cursor-pointer shadow-md ${className}`}
+      className={`h-9 sm:h-10 ${
+        showLabel ? 'px-3 sm:px-3.5 gap-2' : 'w-9 sm:w-10 p-0 justify-center'
+      } rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-bold text-cyan-300 hover:text-white border border-cyan-500/30 flex items-center transition-all cursor-pointer shadow-md shrink-0 ${className}`}
       title={isFullscreen ? 'Keluar Layar Penuh (F)' : 'Masuk Layar Penuh (F)'}
       aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
     >

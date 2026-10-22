@@ -343,8 +343,8 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack }) => {
             </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <SoundToggleButton variant="header" />
-            <FullscreenButton variant="header" />
+            <SoundToggleButton variant="header" showLabel={false} />
+            <FullscreenButton variant="header" showLabel={false} />
             <button
               onClick={() => setIsAuthenticated(false)}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 cursor-pointer"

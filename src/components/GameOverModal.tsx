@@ -9,6 +9,8 @@ import {
 } from '../game/gameLogic.ts';
 import { playGameOverSound } from '../utils/sound.ts';
 import confetti from 'canvas-confetti';
+import { saveScoreToLeaderboard, SaveScoreResult } from '../utils/leaderboardStore.ts';
+import { LeaderboardModal } from './LeaderboardModal.tsx';
 
 interface PlayerFinalStats {
   name: string;
@@ -40,28 +42,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 }) => {
   const [customPhone, setCustomPhone] = useState(token?.teacherPhone || '');
   const [showEditPhone, setShowEditPhone] = useState(false);
-
-  useEffect(() => {
-    if (token?.teacherPhone) {
-      setCustomPhone(token.teacherPhone);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    playGameOverSound();
-    if (mode === 'battle') {
-      try {
-        confetti({
-          particleCount: 50,
-          spread: 70,
-          origin: { y: 0.5 },
-        });
-      } catch {}
-    }
-  }, [mode]);
-
-  const p1Animal = ANIMALS.find((a) => a.id === p1Stats.animalId)!;
-  const p2Animal = p2Stats ? ANIMALS.find((a) => a.id === p2Stats.animalId) : null;
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [p1RankResult, setP1RankResult] = useState<SaveScoreResult | null>(null);
+  const [p2RankResult, setP2RankResult] = useState<SaveScoreResult | null>(null);
+  const savedRef = React.useRef(false);
 
   // Evaluasi skor penilaian berdasarkan soal benar / soal dijawab dan koin yang didapat
   const p1Eval = calculateEvaluationScore(
@@ -76,6 +60,65 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         p2Stats.coins
       )
     : null;
+
+  useEffect(() => {
+    if (token?.teacherPhone) {
+      setCustomPhone(token.teacherPhone);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    playGameOverSound();
+
+    if (!savedRef.current) {
+      savedRef.current = true;
+      // Save P1 score to local leaderboard
+      const res1 = saveScoreToLeaderboard({
+        playerName: p1Stats.name,
+        animalId: p1Stats.animalId,
+        score: p1Eval.totalScore,
+        distance: p1Stats.distance,
+        coins: p1Stats.coins,
+        questionsCorrect: p1Stats.questionsCorrect,
+        questionsTotal: p1Stats.questionsTotal,
+        mode: mode,
+        tokenCode: token?.code,
+      });
+      setP1RankResult(res1);
+
+      // Save P2 score if battle mode
+      let res2: SaveScoreResult | null = null;
+      if (mode === 'battle' && p2Stats && p2Eval) {
+        res2 = saveScoreToLeaderboard({
+          playerName: p2Stats.name,
+          animalId: p2Stats.animalId,
+          score: p2Eval.totalScore,
+          distance: p2Stats.distance,
+          coins: p2Stats.coins,
+          questionsCorrect: p2Stats.questionsCorrect,
+          questionsTotal: p2Stats.questionsTotal,
+          mode: 'battle',
+          tokenCode: token?.code,
+        });
+        setP2RankResult(res2);
+      }
+
+      // Celebratory confetti if battle win, top 3 ranking, or new high score!
+      const isTopRank = (res1.rank <= 3) || res1.isNewHighScore || (res2 && (res2.rank <= 3 || res2.isNewHighScore));
+      if (mode === 'battle' || isTopRank) {
+        try {
+          confetti({
+            particleCount: isTopRank ? 80 : 50,
+            spread: 80,
+            origin: { y: 0.45 },
+          });
+        } catch {}
+      }
+    }
+  }, [mode, p1Stats, p2Stats, p1Eval.totalScore, p2Eval, token?.code]);
+
+  const p1Animal = ANIMALS.find((a) => a.id === p1Stats.animalId)!;
+  const p2Animal = p2Stats ? ANIMALS.find((a) => a.id === p2Stats.animalId) : null;
 
   // Determine winner for battle based on evaluation score
   const p1Wins = p2Eval ? p1Eval.totalScore >= p2Eval.totalScore : false;
@@ -124,7 +167,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 animate-fadeIn overflow-y-auto">
       <div className="w-full max-w-xl bg-slate-900 border-2 border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl text-white my-auto">
         {/* Title Lockup */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-5">
           <div className="text-4xl mb-2">
             {mode === 'battle' ? '🏆' : '💀'}
           </div>
@@ -141,6 +184,51 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               : 'Skor penilaian akhir dihitung dari jumlah soal benar / soal dijawab dan koin!'}
           </p>
         </div>
+
+        {/* Local Leaderboard Ranking Banner */}
+        {p1RankResult && (
+          <div className="mb-5 p-3.5 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-purple-500/15 border border-amber-500/40 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-xl flex items-center justify-center shrink-0 shadow-md">
+                {p1RankResult.rank === 1 ? '🥇' : p1RankResult.rank === 2 ? '🥈' : p1RankResult.rank === 3 ? '🥉' : `#${p1RankResult.rank}`}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-sm text-white">
+                    Peringkat #{p1RankResult.rank}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    dari {p1RankResult.totalEntries} pemain
+                  </span>
+                  {p1RankResult.isNewHighScore && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950 animate-pulse">
+                      👑 REKOR BARU!
+                    </span>
+                  )}
+                  {!p1RankResult.isNewHighScore && p1RankResult.rank <= 3 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
+                      ✨ TOP 3
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-amber-300/90 truncate">
+                  {mode === 'battle' && p2RankResult
+                    ? `${p1Stats.name} (#${p1RankResult.rank}) vs ${p2Stats?.name} (#${p2RankResult.rank}) · Tersimpan di Spreadsheet Tab ${p1RankResult.spreadsheetTab}`
+                    : `Skor ${p1Eval.totalScore.toLocaleString('id-ID')} · Tersimpan di Spreadsheet Tab ${p1RankResult.spreadsheetTab}`}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowLeaderboard(true)}
+              className="w-full sm:w-auto px-3.5 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-white border border-amber-500/50 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <span>🏆</span>
+              <span>Lihat Ranking</span>
+            </button>
+          </div>
+        )}
 
         {/* Solo Stats Card */}
         {mode === 'solo' && (
@@ -401,6 +489,15 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </button>
 
           <button
+            type="button"
+            onClick={() => setShowLeaderboard(true)}
+            className="w-full sm:w-auto px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white font-bold text-sm rounded-xl border border-amber-500/40 transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <span>🏆</span>
+            <span>Papan Skor</span>
+          </button>
+
+          <button
             onClick={onExitToMenu}
             className="w-full sm:w-auto px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-sm rounded-xl border border-slate-700 transition-all cursor-pointer"
           >
@@ -408,6 +505,15 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Leaderboard Modal */}
+      <LeaderboardModal
+        isOpen={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+        highlightEntryId={p1RankResult?.savedEntry.id}
+        initialModeFilter={mode}
+        initialTokenCode={token?.code || 'UMUM'}
+      />
     </div>
   );
 };

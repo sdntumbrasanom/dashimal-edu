@@ -769,6 +769,11 @@ export class SubwayRunnerEngine {
     this.renderer.render(this.scene, this.camera);
   };
 
+  public setLives(newLives: number): void {
+    this.lives = Math.min(this.maxLives, Math.max(0, newLives));
+    this.pushStats();
+  }
+
   public destroy() {
     this.isRunning = false;
     if (this.reqId !== null) {

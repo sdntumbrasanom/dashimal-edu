@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   handlePlayerHit,
   handleAnswerQuestion,
+  handleBattleAnswerQuestion,
   calculateLiveScore,
   calculateEvaluationScore,
   generateWhatsAppMessage,
@@ -158,5 +159,64 @@ test('generateBattleWhatsAppMessage formats battle summary correctly', () => {
   assert.ok(battleMsg.includes('Ahmad'));
   assert.ok(battleMsg.includes('Budi'));
   assert.ok(battleMsg.includes('👑 Pemenang: *Ahmad*'));
+});
+
+test('handleBattleAnswerQuestion: 3 consecutive correct answers grant +1 life and resets on wrong', () => {
+  // Question 1: correct -> streak = 1, no life added yet
+  const q1 = handleBattleAnswerQuestion({
+    isCorrect: true,
+    currentLives: 2,
+    maxLives: 5,
+    currentStreak: 0,
+    currentScore: 0,
+    questionsTotal: 0,
+    questionsCorrect: 0,
+  });
+  assert.equal(q1.newStreak, 1);
+  assert.equal(q1.lifeAdded, false);
+  assert.equal(q1.newLives, 2);
+
+  // Question 2: correct -> streak = 2, no life added yet
+  const q2 = handleBattleAnswerQuestion({
+    isCorrect: true,
+    currentLives: q1.newLives,
+    maxLives: 5,
+    currentStreak: q1.newStreak,
+    currentScore: q1.newScore,
+    questionsTotal: q1.newTotal,
+    questionsCorrect: q1.newCorrect,
+  });
+  assert.equal(q2.newStreak, 2);
+  assert.equal(q2.lifeAdded, false);
+  assert.equal(q2.newLives, 2);
+
+  // Question 3: correct -> streak = 3, +1 LIFE AWARDED!
+  const q3 = handleBattleAnswerQuestion({
+    isCorrect: true,
+    currentLives: q2.newLives,
+    maxLives: 5,
+    currentStreak: q2.newStreak,
+    currentScore: q2.newScore,
+    questionsTotal: q2.newTotal,
+    questionsCorrect: q2.newCorrect,
+  });
+  assert.equal(q3.newStreak, 3);
+  assert.equal(q3.streakAwarded, true);
+  assert.equal(q3.lifeAdded, true);
+  assert.equal(q3.newLives, 3); // 2 -> 3 lives!
+
+  // Question 4: incorrect -> streak resets to 0, no life added
+  const q4 = handleBattleAnswerQuestion({
+    isCorrect: false,
+    currentLives: q3.newLives,
+    maxLives: 5,
+    currentStreak: q3.newStreak,
+    currentScore: q3.newScore,
+    questionsTotal: q3.newTotal,
+    questionsCorrect: q3.newCorrect,
+  });
+  assert.equal(q4.newStreak, 0);
+  assert.equal(q4.lifeAdded, false);
+  assert.equal(q4.newLives, 3);
 });
 

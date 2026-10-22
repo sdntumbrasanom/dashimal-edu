@@ -64,3 +64,18 @@ export interface PlayerStats {
   questionsCorrect: number;
   isGameOver: boolean;
 }
+
+export interface LeaderboardEntry {
+  id: string;
+  playerName: string;
+  animalId: AnimalId;
+  score: number;
+  distance: number;
+  coins: number;
+  questionsCorrect: number;
+  questionsTotal: number;
+  mode: GameMode;
+  tokenCode?: string;
+  timestamp: number;
+  dateStr: string;
+}

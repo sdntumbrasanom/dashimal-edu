@@ -626,6 +626,22 @@ function doGet(e) {
     return createJsonResponse({ status: 'success', tokens: tokens });
   }
 
+  if (action === 'leaderboard') {
+    var tokenCode = (e && e.parameter && (e.parameter.code || e.parameter.token)) || 'UMUM';
+    var entries = getLeaderboardForToken(tokenCode);
+    return createJsonResponse({ status: 'success', tokenCode: tokenCode, entries: entries });
+  }
+
+  if (action === 'save_score' && e && e.parameter && e.parameter.payload) {
+    try {
+      var parsedEntry = JSON.parse(decodeURIComponent(e.parameter.payload));
+      var entries = saveScoreToLeaderboardSheet(parsedEntry);
+      return createJsonResponse({ status: 'success', message: 'Skor berhasil dicatat di spreadsheet', entries: entries });
+    } catch(err) {
+      return createJsonResponse({ status: 'error', message: err.toString() });
+    }
+  }
+
   if (action === 'save' && e.parameter.payload) {
     try {
       var parsed = JSON.parse(decodeURIComponent(e.parameter.payload));
@@ -649,6 +665,15 @@ function doPost(e) {
       return createJsonResponse({
         status: 'error',
         message: 'Akses ditolak: Kunci PIN keamanan database tidak cocok.'
+      });
+    }
+
+    if (data.action === 'save_score' && data.entry) {
+      var entries = saveScoreToLeaderboardSheet(data.entry);
+      return createJsonResponse({
+        status: 'success',
+        message: 'Skor berhasil disimpan di spreadsheet tab Skor_' + (data.entry.tokenCode || 'UMUM'),
+        entries: entries
       });
     }
 
@@ -763,6 +788,93 @@ function deleteTokenFromSheet(sheet, code) {
       break;
     }
   }
+}
+
+function getOrCreateLeaderboardSheet(tokenCode) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var cleanCode = String(tokenCode || 'UMUM').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '_');
+  var sheetName = 'Skor_' + cleanCode;
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.appendRow([
+      'ID Skor',
+      'Nama Pemain',
+      'Karakter Hewan',
+      'Skor Total',
+      'Soal Benar',
+      'Total Soal',
+      'Koin Didapat',
+      'Jarak Lari (m)',
+      'Mode Permainan',
+      'Kode Token',
+      'Waktu / Tanggal'
+    ]);
+    sheet.getRange(1, 1, 1, 11).setFontWeight('bold').setBackground('#fef3c7');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getLeaderboardForToken(tokenCode) {
+  var sheet = getOrCreateLeaderboardSheet(tokenCode);
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  var entries = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0] && !row[1]) continue;
+    entries.push({
+      id: String(row[0] || ('lb-' + i)),
+      playerName: String(row[1] || 'Pemain'),
+      animalId: String(row[2] || 'kelinci'),
+      score: Number(row[3]) || 0,
+      questionsCorrect: Number(row[4]) || 0,
+      questionsTotal: Number(row[5]) || 0,
+      coins: Number(row[6]) || 0,
+      distance: Math.round(Number(row[7]) || 0),
+      mode: String(row[8] || 'solo'),
+      tokenCode: String(row[9] || tokenCode || 'UMUM'),
+      dateStr: String(row[10] || ''),
+      timestamp: Date.now()
+    });
+  }
+  entries.sort(function(a, b) {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.questionsCorrect !== a.questionsCorrect) return b.questionsCorrect - a.questionsCorrect;
+    if (b.coins !== a.coins) return b.coins - a.coins;
+    return b.distance - a.distance;
+  });
+  return entries;
+}
+
+function saveScoreToLeaderboardSheet(entry) {
+  var tokenCode = entry.tokenCode || 'UMUM';
+  var sheet = getOrCreateLeaderboardSheet(tokenCode);
+  var now = new Date();
+  var dateStr = entry.dateStr || Utilities.formatDate(now, 'Asia/Jakarta', 'yyyy-MM-dd HH:mm');
+  var id = entry.id || ('lb_' + now.getTime() + '_' + Math.random().toString(36).substring(2, 6));
+
+  sheet.appendRow([
+    id,
+    entry.playerName || 'Pemain',
+    entry.animalId || 'kelinci',
+    Number(entry.score) || 0,
+    Number(entry.questionsCorrect) || 0,
+    Number(entry.questionsTotal) || 0,
+    Number(entry.coins) || 0,
+    Math.round(Number(entry.distance) || 0),
+    entry.mode || 'solo',
+    tokenCode,
+    dateStr
+  ]);
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 2) {
+    sheet.getRange(2, 1, lastRow - 1, 11).sort({ column: 4, ascending: false });
+  }
+
+  return getLeaderboardForToken(tokenCode);
 }
 
 function createJsonResponse(data) {

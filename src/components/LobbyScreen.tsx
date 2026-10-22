@@ -210,8 +210,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ mode, onProceed, onBac
             ← Ganti Mode Permainan
           </button>
           <div className="flex items-center gap-2">
-            <SoundToggleButton variant="header" />
-            <FullscreenButton variant="header" />
+            <SoundToggleButton variant="header" showLabel={false} />
+            <FullscreenButton variant="header" showLabel={false} />
           </div>
         </div>
 

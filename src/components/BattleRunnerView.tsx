@@ -7,7 +7,7 @@ import { QuestionModal } from './QuestionModal.tsx';
 import { GameOverModal } from './GameOverModal.tsx';
 import { FullscreenButton } from './FullscreenButton.tsx';
 import { SoundToggleButton } from './SoundToggleButton.tsx';
-import { handleAnswerQuestion, calculateLiveScore } from '../game/gameLogic.ts';
+import { handleBattleAnswerQuestion, calculateLiveScore } from '../game/gameLogic.ts';
 import { useSoundManager } from '../hooks/useSoundManager.ts';
 import { randomizeQuizQuestions } from '../game/quizParser.ts';
 
@@ -52,6 +52,8 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
   const [p1Coins, setP1Coins] = useState(0);
   const [p1QTotal, setP1QTotal] = useState(0);
   const [p1QCorrect, setP1QCorrect] = useState(0);
+  const [p1Streak, setP1Streak] = useState(0);
+  const [p1BonusMsg, setP1BonusMsg] = useState<string | null>(null);
   const [p1Dead, setP1Dead] = useState(false);
   const [p1ActiveQuestion, setP1ActiveQuestion] = useState<Question | null>(null);
 
@@ -61,6 +63,8 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
   const [p2Coins, setP2Coins] = useState(0);
   const [p2QTotal, setP2QTotal] = useState(0);
   const [p2QCorrect, setP2QCorrect] = useState(0);
+  const [p2Streak, setP2Streak] = useState(0);
+  const [p2BonusMsg, setP2BonusMsg] = useState<string | null>(null);
   const [p2Dead, setP2Dead] = useState(false);
   const [p2ActiveQuestion, setP2ActiveQuestion] = useState<Question | null>(null);
 
@@ -123,7 +127,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
     const engine1 = new SubwayRunnerEngine(mount1Ref.current, {
       animalId: player1Animal,
       initialLives: 3,
-      maxLives: 3, // exactly 3 lives in battle
+      maxLives: 5, // up to 5 lives through 3-correct streaks
       questions: p1Questions,
       facingFront: false, // face forward down the track
       callbacks: {
@@ -166,7 +170,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
     const engine2 = new SubwayRunnerEngine(mount2Ref.current, {
       animalId: player2Animal,
       initialLives: 3,
-      maxLives: 3, // exactly 3 lives in battle
+      maxLives: 5, // up to 5 lives through 3-correct streaks
       questions: p2Questions,
       facingFront: false, // face forward down the track
       callbacks: {
@@ -280,22 +284,35 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         playWrong();
       }
 
-      const outcome = handleAnswerQuestion({
+      const outcome = handleBattleAnswerQuestion({
         isCorrect,
         currentLives: p1Lives,
-        maxLives: 3,
+        maxLives: 5,
+        currentStreak: p1Streak,
         currentScore: p1Score,
         questionsTotal: p1QTotal,
         questionsCorrect: p1QCorrect,
       });
 
+      setP1Lives(outcome.newLives);
+      setP1Streak(outcome.newStreak);
       setP1QTotal(outcome.newTotal);
       setP1QCorrect(outcome.newCorrect);
+
+      if (outcome.lifeAdded) {
+        engine1Ref.current?.addLife(1);
+        playBonus();
+        setP1BonusMsg('🔥 3 BENAR BERUNTUN! +1 NYAWA ❤️');
+        setTimeout(() => setP1BonusMsg(null), 3000);
+      } else if (isCorrect) {
+        setP1BonusMsg(`🔥 Streak: ${outcome.newStreak}/3 Benar`);
+        setTimeout(() => setP1BonusMsg(null), 2000);
+      }
 
       setP1ActiveQuestion(null);
       engine1Ref.current?.resume();
     },
-    [p1Lives, p1Score, p1QTotal, p1QCorrect, playCorrect, playWrong]
+    [p1Lives, p1Streak, p1Score, p1QTotal, p1QCorrect, playCorrect, playWrong, playBonus]
   );
 
   const handleP2Answer = useCallback(
@@ -306,28 +323,45 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
         playWrong();
       }
 
-      const outcome = handleAnswerQuestion({
+      const outcome = handleBattleAnswerQuestion({
         isCorrect,
         currentLives: p2Lives,
-        maxLives: 3,
+        maxLives: 5,
+        currentStreak: p2Streak,
         currentScore: p2Score,
         questionsTotal: p2QTotal,
         questionsCorrect: p2QCorrect,
       });
 
+      setP2Lives(outcome.newLives);
+      setP2Streak(outcome.newStreak);
       setP2QTotal(outcome.newTotal);
       setP2QCorrect(outcome.newCorrect);
+
+      if (outcome.lifeAdded) {
+        engine2Ref.current?.addLife(1);
+        playBonus();
+        setP2BonusMsg('🔥 3 BENAR BERUNTUN! +1 NYAWA ❤️');
+        setTimeout(() => setP2BonusMsg(null), 3000);
+      } else if (isCorrect) {
+        setP2BonusMsg(`🔥 Streak: ${outcome.newStreak}/3 Benar`);
+        setTimeout(() => setP2BonusMsg(null), 2000);
+      }
 
       setP2ActiveQuestion(null);
       engine2Ref.current?.resume();
     },
-    [p2Lives, p2Score, p2QTotal, p2QCorrect, playCorrect, playWrong]
+    [p2Lives, p2Streak, p2Score, p2QTotal, p2QCorrect, playCorrect, playWrong, playBonus]
   );
 
   const handleRestart = () => {
     setIsGameOver(false);
     setP1Lives(3);
     setP2Lives(3);
+    setP1Streak(0);
+    setP2Streak(0);
+    setP1BonusMsg(null);
+    setP2BonusMsg(null);
     setP1Distance(0);
     setP2Distance(0);
     setP1Coins(0);
@@ -351,7 +385,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       const e1 = new SubwayRunnerEngine(mount1Ref.current, {
         animalId: player1Animal,
         initialLives: 3,
-        maxLives: 3,
+        maxLives: 5,
         questions: freshP1Questions,
         callbacks: {
           onHit: (newLives, dead) => {
@@ -375,7 +409,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       const e2 = new SubwayRunnerEngine(mount2Ref.current, {
         animalId: player2Animal,
         initialLives: 3,
-        maxLives: 3,
+        maxLives: 5,
         questions: freshP2Questions,
         callbacks: {
           onHit: (newLives, dead) => {
@@ -403,12 +437,19 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 border border-slate-700 px-4 py-1 rounded-full text-xs font-black tracking-wider text-amber-300 shadow-xl pointer-events-none flex items-center gap-2">
         <span>⚔️ BATTLE MODE</span>
         <span className="text-slate-500">|</span>
-        <span>WASD vs PANAH</span>
+        <span className="text-emerald-400 font-bold">3 Soal Benar Beruntun = +1 Nyawa ❤️</span>
       </div>
 
       {/* PLAYER 1: Left Split View */}
       <div className="relative overflow-hidden w-full md:w-1/2 h-1/2 md:h-full border-b md:border-b-0 md:border-r border-slate-800">
         <div ref={mount1Ref} className="w-full h-full" />
+
+        {/* P1 Streak Bonus Animated Toast */}
+        {p1BonusMsg && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white font-black text-xs shadow-2xl animate-bounce pointer-events-none border border-amber-300 flex items-center gap-1.5">
+            <span>{p1BonusMsg}</span>
+          </div>
+        )}
 
         {/* P1 Dead Overlay */}
         {p1Dead && (
@@ -425,7 +466,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
           playerName={`P1: ${player1Name}`}
           animalEmoji={p1AnimalObj.emoji}
           lives={p1Lives}
-          maxLives={3}
+          maxLives={5}
           score={p1Score}
           distance={p1Distance}
           coins={p1Coins}
@@ -467,6 +508,13 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
       <div className="relative overflow-hidden w-full md:w-1/2 h-1/2 md:h-full">
         <div ref={mount2Ref} className="w-full h-full" />
 
+        {/* P2 Streak Bonus Animated Toast */}
+        {p2BonusMsg && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-2xl bg-gradient-to-r from-purple-500 via-indigo-500 to-pink-600 text-white font-black text-xs shadow-2xl animate-bounce pointer-events-none border border-purple-300 flex items-center gap-1.5">
+            <span>{p2BonusMsg}</span>
+          </div>
+        )}
+
         {/* P2 Dead Overlay */}
         {p2Dead && (
           <div className="absolute inset-0 bg-red-950/40 z-30 flex items-center justify-center pointer-events-none">
@@ -482,7 +530,7 @@ export const BattleRunnerView: React.FC<BattleRunnerViewProps> = ({
           playerName={`P2: ${player2Name}`}
           animalEmoji={p2AnimalObj.emoji}
           lives={p2Lives}
-          maxLives={3}
+          maxLives={5}
           score={p2Score}
           distance={p2Distance}
           coins={p2Coins}

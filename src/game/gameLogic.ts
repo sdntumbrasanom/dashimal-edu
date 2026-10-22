@@ -63,6 +63,69 @@ export function handleAnswerQuestion(params: {
 }
 
 /**
+ * Handles answering a quiz question in Battle Mode:
+ * Rule: 3 consecutive correct answers earn +1 life (up to maxLives).
+ * If wrong, the streak resets to 0.
+ */
+export function handleBattleAnswerQuestion(params: {
+  isCorrect: boolean;
+  currentLives: number;
+  maxLives?: number;
+  currentStreak: number;
+  currentScore: number;
+  questionsTotal: number;
+  questionsCorrect: number;
+}): {
+  newLives: number;
+  newStreak: number;
+  newScore: number;
+  newTotal: number;
+  newCorrect: number;
+  lifeAdded: boolean;
+  streakAwarded: boolean;
+} {
+  const {
+    isCorrect,
+    currentLives,
+    maxLives = 5,
+    currentStreak,
+    currentScore,
+    questionsTotal,
+    questionsCorrect,
+  } = params;
+
+  if (isCorrect) {
+    const newStreak = currentStreak + 1;
+    // Every 3 consecutive correct answers awards +1 life
+    const streakAwarded = newStreak > 0 && newStreak % 3 === 0;
+    const lifeAdded = streakAwarded && currentLives < maxLives;
+    const newLives = lifeAdded ? currentLives + 1 : currentLives;
+    const newScore = currentScore + 100;
+
+    return {
+      newLives,
+      newStreak,
+      newScore,
+      newTotal: questionsTotal + 1,
+      newCorrect: questionsCorrect + 1,
+      lifeAdded,
+      streakAwarded,
+    };
+  }
+
+  // Answer was incorrect -> reset streak to 0
+  return {
+    newLives: currentLives,
+    newStreak: 0,
+    newScore: currentScore,
+    newTotal: questionsTotal + 1,
+    newCorrect: questionsCorrect,
+    lifeAdded: false,
+    streakAwarded: false,
+  };
+}
+
+/**
  * Menghitung Skor Penilaian Permainan berdasarkan:
  * 1. Jumlah soal benar / soal yang sudah dijawab (100 poin per soal benar)
  * 2. Jumlah koin yang didapat (10 poin per koin)

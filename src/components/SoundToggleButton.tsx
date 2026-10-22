@@ -62,7 +62,9 @@ export const SoundToggleButton: React.FC<SoundToggleButtonProps> = ({
   return (
     <button
       onClick={handleClick}
-      className={`h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm select-none ${
+      className={`h-9 sm:h-10 ${
+        showLabel ? 'px-3 sm:px-3.5 gap-2' : 'w-9 sm:w-10 p-0 justify-center'
+      } rounded-xl border text-xs font-bold flex items-center transition-all cursor-pointer shadow-sm select-none shrink-0 ${
         isAudioOn
           ? 'bg-emerald-950/70 hover:bg-emerald-900/80 border-emerald-500/50 text-emerald-300 hover:border-emerald-400'
           : 'bg-slate-900/80 hover:bg-slate-800 border-rose-500/50 text-rose-300 hover:border-rose-400'
